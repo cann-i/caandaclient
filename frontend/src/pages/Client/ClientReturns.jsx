@@ -1,6 +1,21 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  FileText,
+  CheckCircle,
+  Clock,
+  Loader2,
+  AlertCircle,
+  Eye,
+  Search,
+  Filter,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  List
+} from 'lucide-react';
+import Button from '../../components/ui/Button';
 
 function ClientReturns({ showToast }) {
   const [returns, setReturns] = useState([]);
@@ -14,7 +29,7 @@ function ClientReturns({ showToast }) {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // View Modal State
   const [showViewModal, setShowViewModal] = useState(false);
@@ -39,7 +54,7 @@ function ClientReturns({ showToast }) {
       setReturns(response.data);
     } catch (error) {
       console.error('Error fetching returns:', error);
-      showToast('Error loading returns', 'error');
+      if(showToast) showToast('Error loading returns', 'error');
     } finally {
       setLoading(false);
     }
@@ -82,15 +97,7 @@ function ClientReturns({ showToast }) {
       total: returns.length,
       pending: returns.filter(r => r.status === 'pending').length,
       inProgress: returns.filter(r => r.status === 'in_progress').length,
-      completed: returns.filter(r => r.status === 'completed' || r.status === 'filled' || r.status === 'filed').length,
-      // Calculate overdue if explicit status doesn't exist? For now relying on status string.
-      // If backend marks status as 'overdue', it will show up.
-      // Or adding logic:
-      overdue: returns.filter(r => r.status === 'overdue' || (
-        (r.status === 'pending' || r.status === 'in_progress') &&
-        new Date(r.due_date) < new Date() &&
-        new Date().setHours(0, 0, 0, 0) > new Date(r.due_date).setHours(0, 0, 0, 0) // simple comparison
-      )).length
+      completed: returns.filter(r => ['completed', 'filled', 'filed'].includes(r.status)).length,
     };
   }, [returns]);
 
@@ -103,17 +110,16 @@ function ClientReturns({ showToast }) {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   // Helpers
-  const getStatusBadgeClass = (status) => {
-    if (!status) return 'bg-gray-100 text-gray-700';
+  const getStatusBadge = (status) => {
+    if (!status) return null;
     const s = status.toLowerCase();
-
-    // Check for calculated overdue if status is not explicitly 'overdue' handled in render?
-    // But here we just formatting input string.
-    if (s === 'pending') return 'bg-amber-100 text-amber-700';
-    if (s === 'in_progress') return 'bg-blue-100 text-blue-700';
-    if (s === 'completed' || s === 'filled' || s === 'filed') return 'bg-green-100 text-green-700';
-    if (s === 'overdue') return 'bg-red-100 text-red-700';
-    return 'bg-gray-100 text-gray-700';
+    switch (s) {
+       case 'pending': return <span className="flex items-center gap-1 text-xs font-bold text-warning bg-warning/10 px-2 py-1 rounded border border-warning/20"><Clock size={12}/> Pending</span>;
+       case 'in_progress': return <span className="flex items-center gap-1 text-xs font-bold text-accent bg-accent/10 px-2 py-1 rounded border border-accent/20"><Loader2 size={12} className="animate-spin"/> In Progress</span>;
+       case 'completed': case 'filled': case 'filed': return <span className="flex items-center gap-1 text-xs font-bold text-success bg-success/10 px-2 py-1 rounded border border-success/20"><CheckCircle size={12}/> Completed</span>;
+       case 'overdue': return <span className="flex items-center gap-1 text-xs font-bold text-error bg-error/10 px-2 py-1 rounded border border-error/20"><AlertCircle size={12}/> Overdue</span>;
+       default: return <span className="text-xs text-secondary">{s}</span>;
+    }
   };
 
   const formatStatus = (status) => {
@@ -140,199 +146,114 @@ function ClientReturns({ showToast }) {
   if (loading && returns.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <Loader2 className="animate-spin text-accent" size={32} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">My Returns</h2>
-          <p className="text-sm text-gray-500 mt-1">Track your GST, Income Tax, and other return filings</p>
+          <h2 className="text-2xl font-bold text-primary tracking-tight">My Returns</h2>
+          <p className="text-secondary text-sm">Track your GST, Income Tax, and other filings.</p>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden group"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-30 group-hover:scale-110 transition-transform z-0">
-            <i className="fas fa-list-ul text-4xl text-white"></i>
-          </div>
-          <div className="relative z-10">
-            <p className="text-purple-100 text-sm font-medium uppercase tracking-wider mb-1">Total Returns</p>
-            <h3 className="text-3xl font-black tracking-tight mb-1">{stats.total}</h3>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden group"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-30 group-hover:scale-110 transition-transform z-0">
-            <i className="fas fa-clock text-4xl text-white"></i>
-          </div>
-          <div className="relative z-10">
-            <p className="text-amber-100 text-sm font-medium uppercase tracking-wider mb-1">Pending</p>
-            <h3 className="text-3xl font-black tracking-tight mb-1">{stats.pending}</h3>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden group"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-30 group-hover:scale-110 transition-transform z-0">
-            <i className="fas fa-spinner text-4xl text-white"></i>
-          </div>
-          <div className="relative z-10">
-            <p className="text-blue-100 text-sm font-medium uppercase tracking-wider mb-1">In Progress</p>
-            <h3 className="text-3xl font-black tracking-tight mb-1">{stats.inProgress}</h3>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden group"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-30 group-hover:scale-110 transition-transform z-0">
-            <i className="fas fa-check-circle text-4xl text-white"></i>
-          </div>
-          <div className="relative z-10">
-            <p className="text-green-100 text-sm font-medium uppercase tracking-wider mb-1">Completed</p>
-            <h3 className="text-3xl font-black tracking-tight mb-1">{stats.completed}</h3>
-          </div>
-        </motion.div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+         <div className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between">
+            <div>
+               <p className="text-xs font-mono text-secondary uppercase">Total Returns</p>
+               <h3 className="text-2xl font-bold text-primary">{stats.total}</h3>
+            </div>
+            <List className="text-accent/20" size={32} />
+         </div>
+         <div className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between">
+            <div>
+               <p className="text-xs font-mono text-secondary uppercase">Pending</p>
+               <h3 className="text-2xl font-bold text-warning">{stats.pending}</h3>
+            </div>
+            <Clock className="text-warning/20" size={32} />
+         </div>
+         <div className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between">
+            <div>
+               <p className="text-xs font-mono text-secondary uppercase">In Progress</p>
+               <h3 className="text-2xl font-bold text-accent">{stats.inProgress}</h3>
+            </div>
+            <Loader2 className="text-accent/20" size={32} />
+         </div>
+         <div className="bg-surface border border-border rounded-xl p-4 flex items-center justify-between">
+            <div>
+               <p className="text-xs font-mono text-secondary uppercase">Completed</p>
+               <h3 className="text-2xl font-bold text-success">{stats.completed}</h3>
+            </div>
+            <CheckCircle className="text-success/20" size={32} />
+         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Return Type</label>
-            <select
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
-              value={selectedType} onChange={e => setSelectedType(e.target.value)}
-            >
-              <option value="all">All Types</option>
-              {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+      <div className="bg-surface border border-border rounded-xl p-4 flex flex-col md:flex-row gap-4">
+         <div className="relative md:w-1/4">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" size={16} />
+            <select value={selectedType} onChange={e => {setSelectedType(e.target.value); setCurrentPage(1);}} className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg text-primary focus:border-accent outline-none appearance-none">
+               <option value="all">All Types</option>
+               {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-            <select
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
-              value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="filled">Filled</option>
-              <option value="overdue">Overdue</option>
+         </div>
+         <div className="relative md:w-1/4">
+            <select value={selectedStatus} onChange={e => {setSelectedStatus(e.target.value); setCurrentPage(1);}} className="w-full px-4 py-2 bg-background border border-border rounded-lg text-primary focus:border-accent outline-none appearance-none">
+               <option value="all">All Status</option>
+               <option value="pending">Pending</option>
+               <option value="in_progress">In Progress</option>
+               <option value="completed">Completed</option>
+               <option value="filled">Filled</option>
+               <option value="overdue">Overdue</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-            <input
-              type="text"
-              placeholder="Search type, period..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
-            />
-          </div>
-        </div>
-        {(selectedType !== 'all' || selectedStatus !== 'all' || searchQuery !== '') && (
-          <div className="mt-4 flex justify-end">
-            <button onClick={resetFilters} className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
-              <i className="fas fa-times-circle mr-2"></i>Reset Filters
-            </button>
-          </div>
-        )}
+         </div>
+         <div className="relative md:w-1/2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" size={16} />
+            <input type="text" placeholder="Search..." value={searchQuery} onChange={e => {setSearchQuery(e.target.value); setCurrentPage(1);}} className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg text-primary focus:border-accent outline-none" />
+         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-100/50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-6 py-4 text-sm font-bold text-gray-600 uppercase tracking-wider">Return Type</th>
-                <th className="text-left px-6 py-4 text-sm font-bold text-gray-600 uppercase tracking-wider">Financial Year</th>
-                <th className="text-left px-6 py-4 text-sm font-bold text-gray-600 uppercase tracking-wider">Assessment Year</th>
-                <th className="text-left px-6 py-4 text-sm font-bold text-gray-600 uppercase tracking-wider">Status</th>
-                <th className="text-center px-6 py-4 text-sm font-bold text-gray-600 uppercase tracking-wider">Actions</th>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-surface-highlight/30">
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Return Type</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Financial Year</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Assessment Year</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Status</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               <AnimatePresence>
                 {currentItems.length === 0 ? (
                   <motion.tr key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <td colSpan="5" className="py-20 text-center">
-                      <div className="flex flex-col items-center">
-                        <i className="fas fa-file-invoice text-6xl text-gray-200 mb-4"></i>
-                        <h3 className="text-xl font-semibold text-gray-700 mb-2">No returns found</h3>
-                        <p className="text-gray-500">You don't have any returns matching your criteria.</p>
-                      </div>
+                    <td colSpan="5" className="p-12 text-center text-secondary">
+                        <FileText size={32} className="mx-auto mb-2 opacity-20" />
+                        <p>No returns found.</p>
                     </td>
                   </motion.tr>
                 ) : (
                   currentItems.map((ret, idx) => (
                     <motion.tr
                       key={ret.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="hover:bg-purple-50/10 group transition"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="hover:bg-surface-highlight/50 transition-colors group"
                     >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                            <i className="fas fa-file-alt text-sm"></i>
-                          </div>
-                          <p className="font-bold text-gray-800">{ret.return_type}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600">
-                          {ret.financial_year || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600">
-                          {ret.assessment_year || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusBadgeClass(ret.status)}`}>
-                          {formatStatus(ret.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleOpenView(ret)}
-                            className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg transition"
-                            title="View Return Details"
-                          >
-                            <i className="fas fa-eye"></i>
-                          </button>
-                        </div>
+                      <td className="p-4 font-bold text-primary">{ret.return_type}</td>
+                      <td className="p-4 text-sm text-secondary font-mono">{ret.financial_year || '-'}</td>
+                      <td className="p-4 text-sm text-secondary font-mono">{ret.assessment_year || '-'}</td>
+                      <td className="p-4 text-center">{getStatusBadge(ret.status)}</td>
+                      <td className="p-4 text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenView(ret)} className="h-8 w-8 p-0 rounded-full"><Eye size={16} /></Button>
                       </td>
                     </motion.tr>
                   ))
@@ -344,111 +265,71 @@ function ClientReturns({ showToast }) {
 
         {/* Pagination */}
         {filteredReturns.length > 0 && (
-          <div className="px-6 py-4 bg-white border-t border-gray-100 flex justify-between items-center">
-            <p className="text-sm text-gray-500 font-medium">
-              Showing <span className="text-gray-900 font-bold">{indexOfFirstItem + 1}</span> to <span className="text-gray-900 font-bold">{Math.min(indexOfLastItem, filteredReturns.length)}</span> of <span className="text-gray-900 font-bold">{filteredReturns.length}</span>
-            </p>
-            <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-2xl border border-gray-100">
-              <button
-                onClick={() => paginate(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={`w-9 h-9 flex items-center justify-center rounded-xl transition ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-white hover:text-purple-600 hover:shadow-sm'}`}
-              >
-                <i className="fas fa-chevron-left text-xs"></i>
-              </button>
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => paginate(i + 1)}
-                  className={`w-9 h-9 rounded-xl text-xs font-black transition ${currentPage === i + 1 ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:bg-white hover:text-purple-600'}`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-              <button
-                onClick={() => paginate(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`w-9 h-9 flex items-center justify-center rounded-xl transition ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-white hover:text-purple-600 hover:shadow-sm'}`}
-              >
-                <i className="fas fa-chevron-right text-xs"></i>
-              </button>
+          <div className="p-4 border-t border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+               <span className="text-xs text-secondary">Rows:</span>
+               <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="bg-background border border-border rounded text-xs text-primary p-1 outline-none">
+                  <option value={5}>5</option><option value={10}>10</option><option value={20}>20</option>
+               </select>
+               <span className="text-xs text-secondary ml-4">{((currentPage-1)*itemsPerPage)+1}-{Math.min(currentPage*itemsPerPage, filteredReturns.length)} of {filteredReturns.length}</span>
+            </div>
+            <div className="flex gap-2">
+               <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft size={16} /></Button>
+               <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight size={16} /></Button>
             </div>
           </div>
         )}
       </div>
 
       {/* View Modal */}
-      {showViewModal && selectedReturn && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setShowViewModal(false)}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white flex justify-between items-center shrink-0">
-              <h3 className="text-xl font-bold">Return Details</h3>
-              <button onClick={() => setShowViewModal(false)} className="hover:rotate-90 transition transform"><i className="fas fa-times"></i></button>
-            </div>
-
-            <div className="p-6 space-y-6 overflow-y-auto">
-
-              {/* Header Info */}
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Return Type</p>
-                  <p className="text-lg font-bold text-gray-800">{selectedReturn.return_type}</p>
-                </div>
-                <div className="text-right">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusBadgeClass(selectedReturn.status)}`}>
-                    {formatStatus(selectedReturn.status)}
-                  </span>
-                </div>
+      <AnimatePresence>
+        {showViewModal && selectedReturn && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowViewModal(false)}>
+            <motion.div
+               initial={{ scale: 0.9, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.9, opacity: 0 }}
+               className="bg-surface border border-border rounded-xl w-full max-w-lg overflow-hidden"
+               onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-border flex justify-between items-center bg-surface-highlight/20">
+                <h3 className="text-lg font-bold text-primary">Return Details</h3>
+                <button onClick={() => setShowViewModal(false)}><X size={20} className="text-secondary hover:text-primary"/></button>
               </div>
-
-              {/* Years Info */}
-              <div className="flex gap-4">
-                <div className="bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 flex-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Financial Year</p>
-                  <p className="text-sm font-bold text-gray-800">
-                    {selectedReturn.financial_year || '-'}
-                  </p>
-                </div>
-                <div className="bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 flex-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Assessment Year</p>
-                  <p className="text-sm font-bold text-gray-800">
-                    {selectedReturn.assessment_year || '-'}
-                  </p>
-                </div>
+              <div className="p-6 space-y-4">
+                 <div className="flex justify-between items-start">
+                    <div>
+                       <p className="text-xs font-mono text-secondary uppercase">Return Type</p>
+                       <p className="text-lg font-bold text-primary">{selectedReturn.return_type}</p>
+                    </div>
+                    <div>
+                       {getStatusBadge(selectedReturn.status)}
+                    </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-surface-highlight/10 p-3 rounded-lg border border-border">
+                       <p className="text-xs font-mono text-secondary uppercase">Financial Year</p>
+                       <p className="text-sm font-bold text-primary">{selectedReturn.financial_year || '-'}</p>
+                    </div>
+                    <div className="bg-surface-highlight/10 p-3 rounded-lg border border-border">
+                       <p className="text-xs font-mono text-secondary uppercase">Assessment Year</p>
+                       <p className="text-sm font-bold text-primary">{selectedReturn.assessment_year || '-'}</p>
+                    </div>
+                 </div>
+                 {selectedReturn.notes && (
+                    <div className="bg-accent/5 p-3 rounded-lg border border-accent/20">
+                       <p className="text-xs font-mono text-secondary uppercase mb-1">Notes</p>
+                       <p className="text-sm text-primary">{selectedReturn.notes}</p>
+                    </div>
+                 )}
               </div>
-
-              {/* Notes Section */}
-              {selectedReturn.notes && (
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                  <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">Notes</p>
-                  <p className="text-sm text-blue-900 leading-relaxed font-medium whitespace-pre-wrap">
-                    {selectedReturn.notes}
-                  </p>
-                </div>
-              )}
-
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-gray-100 bg-gray-50 shrink-0">
-              <button
-                onClick={() => setShowViewModal(false)}
-                className="w-full py-3 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition shadow-sm"
-              >
-                Close
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+              <div className="p-4 border-t border-border bg-surface-highlight/10 flex justify-end">
+                 <Button variant="ghost" onClick={() => setShowViewModal(false)}>Close</Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

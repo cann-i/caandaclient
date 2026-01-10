@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import Button from '../components/ui/Button';
+import { User, Lock, Mail, Eye, EyeOff, Briefcase, ChevronRight, Loader2, ShieldCheck } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -81,202 +84,199 @@ function LoginPage({ onLogin, showToast }) {
     }
   };
 
+  const currentEmail = selectedRole === 'ca' ? caEmail : clientEmail;
+  const currentPassword = selectedRole === 'ca' ? caPassword : clientPassword;
+  const currentSetEmail = selectedRole === 'ca' ? setCaEmail : setClientEmail;
+  const currentSetPassword = selectedRole === 'ca' ? setCaPassword : setClientPassword;
+  const currentShowPassword = selectedRole === 'ca' ? showCaPassword : showPassword;
+  const currentSetShowPassword = selectedRole === 'ca' ? setShowCaPassword : setShowPassword;
+  const currentSubmitHandler = selectedRole === 'ca' ? handleCaLogin : handleClientLogin;
+
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center font-sans bg-gray-900">
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center font-sans bg-background text-primary">
 
-      {/* Animated Background Layers */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-blue-900 to-slate-900"></div>
+      {/* Background Elements */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-surface-highlight/20 via-background to-background"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
 
-        {/* Animated Mesh Gradient Overlay */}
-        <div className="absolute inset-0 opacity-30 animated-mesh-bg blur-3xl"></div>
-
-        {/* Floating 3D Shapes */}
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 shape-blob animate-float"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 shape-blob-2 animate-float-slow"></div>
-
-        {/* Grid Pattern Overlay */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-150 contrast-150 mix-blend-overlay"></div>
+        {/* Animated Shapes */}
+        <motion.div
+          animate={{
+            rotate: 360,
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+          className="absolute -top-20 -right-20 w-96 h-96 bg-accent/10 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            rotate: -360,
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+          className="absolute -bottom-20 -left-20 w-80 h-80 bg-blue-900/10 rounded-full blur-3xl"
+        />
       </div>
 
-      <div className="max-w-5xl w-full relative z-10 m-4 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row min-h-[600px] login-glass">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="w-full max-w-4xl relative z-10 m-4 flex flex-col md:flex-row rounded-2xl overflow-hidden border border-border shadow-2xl bg-surface/80 backdrop-blur-xl h-[600px]"
+      >
 
-        {/* Left Side - Hero/Branding */}
-        <div className="w-full md:w-1/2 p-12 text-white flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-blue-600/90 to-indigo-800/90 backdrop-blur-md">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-            <i className="fas fa-file-invoice-dollar text-[20rem] absolute -bottom-20 -right-20 transform rotate-12"></i>
-            <div className="absolute top-20 left-20 w-32 h-32 bg-white rounded-full blur-3xl opacity-20"></div>
-          </div>
-
+        {/* Left Side - Hero */}
+        <div className="w-full md:w-1/2 p-10 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-surface to-surface-highlight border-r border-border">
           <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg boarder border-white/20">
-                <i className="fas fa-file-invoice text-2xl"></i>
+             <motion.div
+               initial={{ x: -20, opacity: 0 }}
+               animate={{ x: 0, opacity: 1 }}
+               transition={{ delay: 0.2 }}
+               className="flex items-center gap-3 mb-12"
+             >
+              <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center border border-accent/20">
+                <ShieldCheck className="text-accent" size={20} />
               </div>
-              <span className="text-2xl font-bold tracking-tight">DocuCA</span>
-            </div>
+              <span className="text-xl font-bold tracking-tight text-white">DocuCA</span>
+            </motion.div>
 
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight drop-shadow-lg">
-              Manage Your <br />
-              <span className="text-blue-200">Financials</span> <br />
-              With Confidence
-            </h1>
-            <p className="text-blue-100 text-lg leading-relaxed max-w-sm drop-shadow-md">
-              Access your documents, track returns, and manage invoices in one secure, unified portal.
-            </p>
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <h1 className="text-4xl font-bold mb-6 leading-tight text-white">
+                Professional <br />
+                <span className="text-accent">Financial Suite</span>
+              </h1>
+              <p className="text-secondary text-base leading-relaxed max-w-xs">
+                Securely manage documents, returns, and client relationships with precision and ease.
+              </p>
+            </motion.div>
           </div>
 
           <div className="relative z-10 mt-12">
-            <div className="flex items-center gap-4 text-sm text-blue-200">
-              <div className="flex -space-x-2">
-                <div className="w-8 h-8 rounded-full bg-blue-400 border-2 border-indigo-800 shadow-md"></div>
-                <div className="w-8 h-8 rounded-full bg-blue-300 border-2 border-indigo-800 shadow-md"></div>
-                <div className="w-8 h-8 rounded-full bg-blue-200 border-2 border-indigo-800 flex items-center justify-center text-indigo-800 font-bold text-xs shadow-md">+2k</div>
-              </div>
-              <span>Trusted by 2000+ Businesses</span>
+            <div className="flex items-center gap-4 text-sm text-secondary">
+               <div className="flex -space-x-3">
+                 {[1,2,3].map((i) => (
+                   <div key={i} className="w-8 h-8 rounded-full bg-surface-highlight border border-border flex items-center justify-center text-xs font-mono text-secondary">
+                      {String.fromCharCode(64+i)}
+                   </div>
+                 ))}
+               </div>
+               <span className="font-mono text-xs">Trusted Platform</span>
             </div>
           </div>
+
+          {/* Decorative Grid on Left Panel */}
+          <div className="absolute inset-0 z-0 opacity-[0.05] pointer-events-none bg-[linear-gradient(45deg,#ffffff_1px,transparent_1px)] bg-[size:20px_20px]"></div>
         </div>
 
         {/* Right Side - Login Form */}
-        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+        <div className="w-full md:w-1/2 p-10 flex flex-col justify-center bg-background/50 relative">
 
-          <div className="text-center md:text-left mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2 tracking-tight">Welcome Back</h2>
-            <p className="text-gray-500 dark:text-gray-400">Please choose your role to continue</p>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-primary mb-2">Welcome Back</h2>
+            <p className="text-secondary text-sm">Select your portal to continue</p>
           </div>
 
           {/* Role Switcher */}
-          <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl mb-8 border border-gray-200 dark:border-gray-700">
+          <div className="flex bg-surface p-1 rounded-lg mb-8 border border-border">
             <button
-              onClick={() => { setSelectedRole('ca'); }}
-              className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${selectedRole === 'ca' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+              onClick={() => setSelectedRole('ca')}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${selectedRole === 'ca' ? 'bg-background text-accent shadow-sm border border-border/50' : 'text-secondary hover:text-primary hover:bg-surface-highlight'}`}
             >
-              <i className="fas fa-user-tie"></i> CA / Admin
+              <Briefcase size={16} /> CA / Admin
             </button>
             <button
               onClick={() => setSelectedRole('client')}
-              className={`flex-1 py-3 text-sm font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${selectedRole === 'client' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${selectedRole === 'client' ? 'bg-background text-accent shadow-sm border border-border/50' : 'text-secondary hover:text-primary hover:bg-surface-highlight'}`}
             >
-              <i className="fas fa-user"></i> Client
+              <User size={16} /> Client
             </button>
           </div>
 
-          <div className="transition-all duration-300 flex-1 relative">
-            {selectedRole === 'ca' ? (
-              // CA FORM
-              <form onSubmit={handleCaLogin} className="space-y-5 animate-fade-in-up">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
-                  <div className="relative group">
-                    <i className="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
-                    <input
-                      type="email"
-                      value={caEmail}
-                      onChange={(e) => setCaEmail(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 transition-all outline-none bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-900 dark:text-white"
-                      placeholder="admin@example.com"
-                    />
-                  </div>
+          <AnimatePresence mode="wait">
+            <motion.form
+              key={selectedRole}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              onSubmit={currentSubmitHandler}
+              className="space-y-5"
+            >
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-secondary uppercase tracking-wider">Email Address</label>
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary group-focus-within:text-accent transition-colors" size={18} />
+                  <input
+                    type="email"
+                    value={currentEmail}
+                    onChange={(e) => currentSetEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-surface text-primary placeholder-secondary/50 focus:border-accent focus:ring-1 focus:ring-accent transition-all outline-none"
+                    placeholder="name@company.com"
+                  />
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Password</label>
-                  <div className="relative group">
-                    <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
-                    <input
-                      type={showCaPassword ? 'text' : 'password'}
-                      value={caPassword}
-                      onChange={(e) => setCaPassword(e.target.value)}
-                      className="w-full pl-11 pr-12 py-3.5 rounded-xl border border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 transition-all outline-none bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-900 dark:text-white"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCaPassword(!showCaPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus:outline-none bg-transparent border-none p-0 cursor-pointer"
-                    >
-                      <i className={`fas ${showCaPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center text-gray-500 dark:text-gray-400 cursor-pointer">
-                    <input type="checkbox" className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                    Remember me
-                  </label>
-                  <button type="button" className="text-blue-600 hover:underline dark:text-blue-400 bg-transparent border-none p-0 cursor-pointer">Forgot password?</button>
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 rounded-xl transition-all transform active:scale-[0.98] shadow-lg shadow-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {loading ? <i className="fas fa-spinner fa-spin"></i> : <><i className="fas fa-sign-in-alt"></i> Login</>}
-                </button>
-              </form>
-            ) : (
-              // CLIENT FORM
-              <form onSubmit={handleClientLogin} className="space-y-5 animate-fade-in-up">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
-                  <div className="relative group">
-                    <i className="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
-                    <input
-                      type="email"
-                      value={clientEmail}
-                      onChange={(e) => setClientEmail(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 transition-all outline-none bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-900 dark:text-white"
-                      placeholder="client@company.com"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Password</label>
-                  <div className="relative group">
-                    <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={clientPassword}
-                      onChange={(e) => setClientPassword(e.target.value)}
-                      className="w-full pl-11 pr-12 py-3.5 rounded-xl border border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 transition-all outline-none bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-900 dark:text-white"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus:outline-none bg-transparent border-none p-0 cursor-pointer"
-                    >
-                      <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center text-gray-500 dark:text-gray-400 cursor-pointer">
-                    <input type="checkbox" className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                    Remember me
-                  </label>
-                  <button type="button" className="text-blue-600 hover:underline dark:text-blue-400 bg-transparent border-none p-0 cursor-pointer">Forgot password?</button>
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 rounded-xl transition-all transform active:scale-[0.98] shadow-lg shadow-blue-500/30 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {loading ? <i className="fas fa-spinner fa-spin"></i> : <><i className="fas fa-sign-in-alt"></i> Login</>}
-                </button>
-              </form>
-            )}
-          </div>
+              </div>
 
-          {/* Demo Credentials Hint */}
-          <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-xs text-center text-gray-400 dark:text-gray-500">
-              <span className="font-semibold block mb-1 uppercase tracking-wider text-[10px] text-gray-300 dark:text-gray-600">Development Mode</span>
-              Demo: CA (OTP: 123456) | Client (Pass: 123456)
+              <div className="space-y-1">
+                <label className="block text-xs font-mono text-secondary uppercase tracking-wider">Password</label>
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary group-focus-within:text-accent transition-colors" size={18} />
+                  <input
+                    type={currentShowPassword ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => currentSetPassword(e.target.value)}
+                    className="w-full pl-10 pr-10 py-3 rounded-lg border border-border bg-surface text-primary placeholder-secondary/50 focus:border-accent focus:ring-1 focus:ring-accent transition-all outline-none"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => currentSetShowPassword(!currentShowPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary transition-colors focus:outline-none"
+                  >
+                    {currentShowPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-secondary">
+                <label className="flex items-center cursor-pointer hover:text-primary transition-colors">
+                  <input type="checkbox" className="mr-2 rounded border-border bg-surface text-accent focus:ring-accent" />
+                  Remember me
+                </label>
+                <button type="button" className="hover:text-accent transition-colors focus:outline-none">Forgot password?</button>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 text-sm font-bold tracking-wide"
+                variant="accent"
+              >
+                {loading ? <Loader2 className="animate-spin" size={20} /> : <span className="flex items-center gap-2">Sign In <ChevronRight size={16} /></span>}
+              </Button>
+            </motion.form>
+          </AnimatePresence>
+
+          <div className="mt-8 pt-6 border-t border-border">
+            <p className="text-[10px] text-center text-secondary font-mono">
+              <span className="block mb-1 text-accent/70">DEVELOPMENT MODE</span>
+              DEMO: CA (OTP: 123456) | CLIENT (PASS: 123456)
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

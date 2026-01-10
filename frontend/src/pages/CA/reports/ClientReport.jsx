@@ -4,6 +4,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 import Select from 'react-select';
+import {
+  FileText,
+  Printer,
+  Download,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  Filter
+} from 'lucide-react';
+import Button from '../../../components/ui/Button';
 
 // Set base URL for Axios
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -29,7 +40,6 @@ function ClientReport({ showToast }) {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Load Real Data
-
   useEffect(() => {
     const fetchData = async (isInitial = false) => {
       if (isInitial) setLoading(true);
@@ -55,7 +65,6 @@ function ClientReport({ showToast }) {
         setRequests(requestsRes.data || []);
       } catch (error) {
         console.error("Error fetching data:", error);
-        // Only show toast on initial load failure to avoid spamming
         if (showToast && isInitial) showToast('Failed to load report data', 'error');
       } finally {
         if (isInitial) setLoading(false);
@@ -76,7 +85,6 @@ function ClientReport({ showToast }) {
     if (!fromDate && !toDate) return true;
     if (!dateStr) return false;
     const date = new Date(dateStr);
-    // Reset times for accurate day comparison
     const start = fromDate ? new Date(fromDate) : null;
     if (start) start.setHours(0, 0, 0, 0);
 
@@ -88,28 +96,18 @@ function ClientReport({ showToast }) {
     return true;
   }, [fromDate, toDate]);
 
-
-
   // Merge Data for Table with Date Filtering
   const clientRows = useMemo(() => {
     return clients.map(client => {
       const clientReturns = returns.filter(r => r.client_id === client.id && isWithinRange(r.created_at));
-
-      // Invoices matching by ID (Robust)
       const clientInvoices = invoices.filter(i => i.clientId === client.id && isWithinRange(i.date));
-
       const clientDocs = documents.filter(d => d.client_id === client.id && isWithinRange(d.created_at));
       const clientRequests = requests.filter(r => r.client_id === client.id && isWithinRange(r.created_at));
 
       const totalReturnsCount = clientReturns.length;
       const totalRequestsCount = clientRequests.length;
-
       const totalBilled = clientInvoices.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0);
-
-      // Fixed: Use inv.paidAmount (which sums all payments) instead of filtering only 'Paid' status
       const totalPaid = clientInvoices.reduce((sum, inv) => sum + (Number(inv.paidAmount) || 0), 0);
-
-      // Calculate pending dues properly
       const pendingDues = totalBilled - totalPaid;
 
       return {
@@ -185,316 +183,273 @@ function ClientReport({ showToast }) {
     setCurrentPage(1);
   };
 
+  const selectStyles = {
+    control: (base) => ({
+      ...base,
+      backgroundColor: '#121212',
+      borderColor: '#2A2A2A',
+      color: '#E0E0E0',
+      '&:hover': { borderColor: '#3B82F6' },
+    }),
+    menu: (base) => ({
+      ...base,
+      backgroundColor: '#121212',
+      border: '1px solid #2A2A2A',
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isFocused ? '#1E1E1E' : '#121212',
+      color: '#E0E0E0',
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: '#E0E0E0',
+    }),
+    input: (base) => ({
+      ...base,
+      color: '#E0E0E0',
+    }),
+    placeholder: (base) => ({
+        ...base,
+        color: '#A0A0A0',
+    })
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-primary tracking-tight">Client Reports</h1>
+          <p className="text-sm text-secondary">Overview of performance, requests, and financials.</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => window.print()} className="gap-2">
+            <Printer size={16} /> Print
+          </Button>
+          <Button variant="accent" onClick={handleExport} className="gap-2">
+            <Download size={16} /> Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-surface border border-border rounded-xl p-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-mono text-secondary uppercase mb-2">Select Client</label>
+            <Select
+              className="text-sm"
+              placeholder="Search client..."
+              value={clientFilter === 'all' ? { value: 'all', label: 'All Clients' } : {
+                value: clientFilter,
+                label: clients.find(c => c.id === clientFilter)?.client_name || clientFilter
+              }}
+              onChange={(opt) => {
+                setClientFilter(opt ? opt.value : 'all');
+                setCurrentPage(1);
+              }}
+              options={[
+                { value: 'all', label: 'All Clients' },
+                ...clients.map(client => ({
+                  value: client.id,
+                  label: `${client.client_name} (${client.client_type})`
+                }))
+              ]}
+              isSearchable={true}
+              styles={selectStyles}
+            />
+          </div>
+
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Client Reports</h1>
-            <p className="text-sm text-gray-500">Comprehensive overview of performance, requests, and financials</p>
+            <label className="block text-xs font-mono text-secondary uppercase mb-2">From Date</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => { setFromDate(e.target.value); setCurrentPage(1); }}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
+            />
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2 font-semibold shadow-sm"
+
+          <div>
+            <label className="block text-xs font-mono text-secondary uppercase mb-2">To Date</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => { setToDate(e.target.value); setCurrentPage(1); }}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono text-secondary uppercase mb-2">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
             >
-              <i className="fas fa-print"></i>
-              Print
-            </button>
-            <button
-              onClick={handleExport}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 font-semibold shadow-sm"
-            >
-              <i className="fas fa-file-excel"></i>
-              Export Excel
-            </button>
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
+
+          {hasActiveFilters && (
+            <div className="flex items-end">
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-secondary hover:text-primary gap-2">
+                <RefreshCw size={14} /> Reset
+              </Button>
+            </div>
+          )}
         </div>
+      </div>
 
-
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">Select Client</label>
-              <Select
-                className="w-full text-sm font-medium"
-                placeholder="Search and select client..."
-                value={clientFilter === 'all' ? { value: 'all', label: 'All Clients' } : {
-                  value: clientFilter,
-                  label: clients.find(c => c.id === clientFilter)?.client_name || clientFilter
-                }}
-                onChange={(opt) => {
-                  setClientFilter(opt ? opt.value : 'all');
-                  setCurrentPage(1);
-                }}
-                options={[
-                  { value: 'all', label: 'All Clients' },
-                  ...clients.map(client => ({
-                    value: client.id,
-                    label: `${client.client_name} (${client.client_type})`
-                  }))
-                ]}
-                isSearchable={true}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    borderColor: '#D1D5DB',
-                    '&:hover': { borderColor: '#6366F1' },
-                    borderRadius: '0.5rem',
-                    padding: '1px',
-                    boxShadow: 'none'
-                  })
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">From Date</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => { setFromDate(e.target.value); setCurrentPage(1); }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">To Date</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => { setToDate(e.target.value); setCurrentPage(1); }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-
-            {hasActiveFilters && (
-              <div className="flex items-end">
-                <button
-                  onClick={resetFilters}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-semibold"
-                >
-                  <i className="fas fa-times mr-2"></i>
-                  Reset
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Report Table */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden backdrop-blur-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100/50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-black text-gray-600 uppercase tracking-wider">Client Details</th>
-                  <th className="px-4 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Requests</th>
-                  <th className="px-4 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Returns</th>
-                  <th className="px-4 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Docs</th>
-                  <th className="px-6 py-4 text-right text-xs font-black text-gray-600 uppercase tracking-wider">Total Billed</th>
-                  <th className="px-6 py-4 text-right text-xs font-black text-gray-600 uppercase tracking-wider">Paid</th>
-                  <th className="px-6 py-4 text-right text-xs font-black text-gray-600 uppercase tracking-wider">Dues</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                <AnimatePresence>
-                  {paginatedRows.map((row, index) => (
+      {/* Report Table */}
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-surface-highlight/30">
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Client Details</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Requests</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Returns</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Docs</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-right">Total Billed</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-right">Paid</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-right">Dues</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <AnimatePresence>
+                {paginatedRows.length > 0 ? (
+                  paginatedRows.map((row) => (
                     <motion.tr
                       key={row.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="hover:bg-gradient-to-r hover:from-purple-50/30 hover:to-indigo-50/30 transition-all duration-300 group"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="hover:bg-surface-highlight/50 transition-colors group"
                     >
-                      <td className="px-6 py-4">
+                      <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 text-purple-700 flex items-center justify-center font-bold text-sm border border-purple-200 shadow-sm flex-shrink-0">
-                            {row.client_name?.charAt(0).toUpperCase() || <i className="fas fa-user text-xs opacity-50"></i>}
+                          <div className="w-8 h-8 rounded bg-accent/10 text-accent flex items-center justify-center font-bold text-xs border border-accent/20">
+                            {row.client_name?.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-bold text-gray-900">{row.client_name}</span>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-gray-500 capitalise bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">{row.client_type}</span>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${row.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                }`}>
+                            <span className="font-bold text-primary text-sm">{row.client_name}</span>
+                            <div className="flex gap-1 mt-0.5">
+                              <span className="text-[10px] bg-surface border border-border px-1.5 py-0.5 rounded text-secondary capitalize">{row.client_type}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold border ${
+                                row.status === 'active' ? 'text-success border-success/20 bg-success/10' : 'text-error border-error/20 bg-error/10'
+                              }`}>
                                 {row.status}
                               </span>
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="p-4 text-center">
                         {row.totalRequestsCount > 0 ? (
                           <button
                             onClick={() => navigate('/requests/client', { state: { clientId: row.id } })}
-                            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 hover:bg-purple-200 transition-colors"
+                            className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
                           >
                             {row.totalRequestsCount}
                           </button>
-                        ) : (
-                          <span className="text-gray-400 text-xs">-</span>
-                        )}
+                        ) : <span className="text-secondary text-xs">-</span>}
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="p-4 text-center">
                         {row.totalReturnsCount > 0 ? (
                           <button
                             onClick={() => navigate('/returns', { state: { clientId: row.id } })}
-                            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-200 hover:bg-orange-200 transition-colors"
+                            className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold bg-warning/10 text-warning border border-warning/20 hover:bg-warning/20 transition-colors"
                           >
                             {row.totalReturnsCount}
                           </button>
-                        ) : (
-                          <span className="text-gray-400 text-xs">-</span>
-                        )}
+                        ) : <span className="text-secondary text-xs">-</span>}
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="p-4 text-center">
                         <button
                           onClick={() => navigate('/documents', { state: { clientId: row.id } })}
-                          className={`text-sm font-bold px-2 py-1 rounded border transition-colors ${row.docsCount > 0
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
-                            : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed opacity-50'
+                          className={`text-xs font-bold px-2 py-0.5 rounded border transition-colors ${row.docsCount > 0
+                            ? 'bg-surface-highlight text-primary border-border hover:bg-surface-highlight/80'
+                            : 'text-secondary border-transparent cursor-default'
                             }`}
+                          disabled={row.docsCount === 0}
                         >
-                          {row.docsCount}
+                          {row.docsCount > 0 ? row.docsCount : '-'}
                         </button>
                       </td>
-                      <td className="px-6 py-4 text-right font-bold text-gray-900">
+                      <td className="p-4 text-right font-bold text-primary text-sm">
                         {formatCurrency(row.totalBilled)}
                       </td>
-                      <td className="px-6 py-4 text-right text-green-600 font-bold">
+                      <td className="p-4 text-right text-success font-bold text-sm">
                         {formatCurrency(row.totalPaid)}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="p-4 text-right text-sm">
                         {row.pendingDues > 0 ? (
-                          <span className="font-bold text-red-600">{formatCurrency(row.pendingDues)}</span>
-                        ) : (
-                          <span className="text-gray-400 font-medium">-</span>
-                        )}
+                          <span className="font-bold text-error">{formatCurrency(row.pendingDues)}</span>
+                        ) : <span className="text-secondary">-</span>}
                       </td>
                     </motion.tr>
-                  ))}
-                </AnimatePresence>
-
-                {paginatedRows.length === 0 && (
+                  ))
+                ) : (
                   <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                      <div className="flex flex-col items-center">
-                        <i className="fas fa-search text-4xl mb-3 text-gray-300"></i>
-                        <p className="font-medium">No clients found matching your criteria</p>
-                        <p className="text-sm text-gray-400 mt-1">Try adjusting the date range or filters</p>
-                      </div>
+                    <td colSpan="7" className="p-12 text-center text-secondary">
+                       <div className="flex flex-col items-center gap-2">
+                          <Filter size={32} className="opacity-20" />
+                          <p>No clients found matching your criteria</p>
+                       </div>
                     </td>
                   </tr>
                 )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Professional Pagination */}
-          {filteredRows.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-100 flex flex-col lg:flex-row justify-between items-center gap-6 bg-white">
-              <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Show</span>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="bg-transparent text-sm font-bold text-purple-600 outline-none cursor-pointer"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                  </select>
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Entries</span>
-                </div>
-                <p className="text-sm text-gray-500 font-medium whitespace-nowrap">
-                  Showing <span className="text-gray-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-gray-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredRows.length)}</span> of <span className="text-gray-900 font-bold">{filteredRows.length}</span> results
-                </p>
-              </div>
-
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-gray-50 p-1 rounded-2xl border border-gray-100 shadow-sm">
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-gray-600 hover:bg-white hover:text-purple-600 hover:shadow-sm'}`}
-                    >
-                      <i className="fas fa-angle-double-left text-xs"></i>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-gray-600 hover:bg-white hover:text-purple-600 hover:shadow-sm'}`}
-                    >
-                      <i className="fas fa-chevron-left text-xs"></i>
-                    </button>
-
-                    <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-gray-600 hover:bg-white hover:text-purple-600 hover:shadow-sm'}`}
-                    >
-                      <i className="fas fa-chevron-right text-xs"></i>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-gray-600 hover:bg-white hover:text-purple-600 hover:shadow-sm'}`}
-                    >
-                      <i className="fas fa-angle-double-right text-xs"></i>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+              </AnimatePresence>
+            </tbody>
+          </table>
         </div>
 
-        {/* Print Styles */}
-        <style>{`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            #root, #root * {
-              visibility: visible;
-            }
-            .sidebar, header, nav, button { 
-              display: none !important; 
-            }
-          }
-        `}</style>
+        {/* Pagination */}
+        {filteredRows.length > 0 && (
+          <div className="p-4 border-t border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+               <span className="text-xs text-secondary">Rows:</span>
+               <select
+                 value={itemsPerPage}
+                 onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                 className="bg-background border border-border rounded text-xs text-primary p-1 outline-none"
+               >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+               </select>
+               <span className="text-xs text-secondary ml-4">
+                  {((currentPage-1)*itemsPerPage)+1}-{Math.min(currentPage*itemsPerPage, filteredRows.length)} of {filteredRows.length}
+               </span>
+            </div>
+            <div className="flex gap-2">
+               <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft size={16} /></Button>
+               <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight size={16} /></Button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Print Styles */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #root, #root * { visibility: visible; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

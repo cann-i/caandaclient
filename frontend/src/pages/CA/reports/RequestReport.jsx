@@ -3,6 +3,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 import Select from 'react-select';
+import {
+  FileText,
+  Printer,
+  Download,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  CheckCircle,
+  Clock,
+  XCircle,
+  AlertTriangle
+} from 'lucide-react';
+import Button from '../../../components/ui/Button';
 
 // Set base URL for Axios
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -24,7 +38,6 @@ function RequestReport({ showToast }) {
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const statusOptions = ['Pending', 'In Progress', 'Resolved', 'Rejected'];
-
 
     // Load Data
     useEffect(() => {
@@ -48,14 +61,12 @@ function RequestReport({ showToast }) {
         fetchData();
     }, [showToast]);
 
-    // Helper to check date range
     const isWithinRange = useCallback((dateStr) => {
         if (!fromDate && !toDate) return true;
         if (!dateStr) return false;
         const date = new Date(dateStr);
         const start = fromDate ? new Date(fromDate) : null;
         if (start) start.setHours(0, 0, 0, 0);
-
         const end = toDate ? new Date(toDate) : null;
         if (end) end.setHours(23, 59, 59, 999);
 
@@ -64,7 +75,6 @@ function RequestReport({ showToast }) {
         return true;
     }, [fromDate, toDate]);
 
-    // Filtered Data
     const filteredRequests = useMemo(() => {
         return requests.filter(req => {
             const matchesClient = clientFilter === 'all' || req.client_id === parseInt(clientFilter);
@@ -80,7 +90,6 @@ function RequestReport({ showToast }) {
         return clientFilter !== 'all' || statusFilter !== 'all' || priorityFilter !== 'all' || fromDate !== '' || toDate !== '';
     }, [clientFilter, statusFilter, priorityFilter, fromDate, toDate]);
 
-    // Stats Calculation
     const stats = useMemo(() => {
         const total = filteredRequests.length;
         const pending = filteredRequests.filter(r => r.status === 'Pending').length;
@@ -90,45 +99,22 @@ function RequestReport({ showToast }) {
         return { total, pending, resolved, urgent };
     }, [filteredRequests]);
 
-    // Pagination Logic
     const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
     const paginatedItems = filteredRequests.slice(
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
     );
 
-    // Styling Helpers
     const getStatusBadgeClass = (status) => {
         switch (status) {
-            case 'Pending': return 'bg-amber-100 text-amber-700';
-            case 'In Progress': return 'bg-blue-100 text-blue-700';
-            case 'Resolved': return 'bg-green-100 text-green-700';
-            case 'Rejected': return 'bg-red-100 text-red-700';
-            default: return 'bg-gray-100 text-gray-700';
+            case 'Pending': return 'bg-warning/10 text-warning border-warning/20';
+            case 'In Progress': return 'bg-accent/10 text-accent border-accent/20';
+            case 'Resolved': return 'bg-success/10 text-success border-success/20';
+            case 'Rejected': return 'bg-error/10 text-error border-error/20';
+            default: return 'bg-surface-highlight text-secondary border-border';
         }
     };
 
-    const getRequestTypeBadgeClass = (type) => {
-        switch (type) {
-            case 'Document Request': return 'bg-blue-100 text-blue-700';
-            case 'Query': return 'bg-purple-100 text-purple-700';
-            case 'Appointment': return 'bg-orange-100 text-orange-700';
-            case 'Consultation': return 'bg-teal-100 text-teal-700';
-            case 'Other': return 'bg-gray-100 text-gray-700';
-            default: return 'bg-gray-100 text-gray-700';
-        }
-    };
-
-    const getPriorityBadgeClass = (priority) => {
-        switch (priority) {
-            case 'Urgent': return 'bg-rose-100 text-rose-700';
-            case 'Normal': return 'bg-indigo-100 text-indigo-700';
-            case 'Low': return 'bg-slate-100 text-slate-700';
-            default: return 'bg-gray-100 text-gray-700';
-        }
-    };
-
-    // Handlers
     const handleExport = () => {
         const exportData = filteredRequests.map(req => ({
             'Client Name': req.client_name,
@@ -157,96 +143,96 @@ function RequestReport({ showToast }) {
         setCurrentPage(1);
     };
 
+    const selectStyles = {
+        control: (base) => ({
+          ...base,
+          backgroundColor: '#121212',
+          borderColor: '#2A2A2A',
+          color: '#E0E0E0',
+          '&:hover': { borderColor: '#3B82F6' },
+        }),
+        menu: (base) => ({
+          ...base,
+          backgroundColor: '#121212',
+          border: '1px solid #2A2A2A',
+        }),
+        option: (base, state) => ({
+          ...base,
+          backgroundColor: state.isFocused ? '#1E1E1E' : '#121212',
+          color: '#E0E0E0',
+        }),
+        singleValue: (base) => ({
+          ...base,
+          color: '#E0E0E0',
+        }),
+        input: (base) => ({
+          ...base,
+          color: '#E0E0E0',
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: '#A0A0A0',
+        })
+      };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <div className="max-w-7xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Request Report</h1>
-                        <p className="text-sm text-gray-500">Comprehensive log of client requests and status updates</p>
-                    </div>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => window.print()}
-                            className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2 font-semibold shadow-sm"
-                        >
-                            <i className="fas fa-print text-purple-600"></i>
-                            Print
-                        </button>
-                        <button
-                            onClick={handleExport}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 font-semibold shadow-sm"
-                        >
-                            <i className="fas fa-file-excel"></i>
-                            Export Excel
-                        </button>
-                    </div>
+        <div className="max-w-7xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-primary tracking-tight">Request Reports</h1>
+                    <p className="text-sm text-secondary">Log of client requests and status updates.</p>
+                </div>
+                <div className="flex gap-3">
+                    <Button variant="secondary" onClick={() => window.print()} className="gap-2">
+                        <Printer size={16} /> Print
+                    </Button>
+                    <Button variant="accent" onClick={handleExport} className="gap-2">
+                        <Download size={16} /> Export Excel
+                    </Button>
                 </div>
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden group"
-                >
-                    <div className="absolute top-0 right-0 p-4 opacity-30 group-hover:scale-110 transition-transform z-0">
-                        <i className="fas fa-list-ul text-4xl text-white"></i>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-surface border border-border rounded-xl p-6 relative overflow-hidden">
                     <div className="relative z-10">
-                        <p className="text-purple-100 text-sm font-medium uppercase tracking-wider mb-1">Total Requests</p>
-                        <h3 className="text-3xl font-black tracking-tight mb-1">{stats.total}</h3>
+                        <p className="text-xs font-mono text-secondary uppercase mb-1">Total Requests</p>
+                        <h3 className="text-2xl font-bold text-primary">{stats.total}</h3>
                     </div>
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden group"
-                >
-                    <div className="absolute top-0 right-0 p-4 opacity-30 group-hover:scale-110 transition-transform z-0">
-                        <i className="fas fa-clock text-4xl text-white"></i>
-                    </div>
+                    <FileText className="absolute right-4 top-4 text-accent/20" size={48} />
+                </div>
+                <div className="bg-surface border border-border rounded-xl p-6 relative overflow-hidden">
                     <div className="relative z-10">
-                        <p className="text-amber-100 text-sm font-medium uppercase tracking-wider mb-1">Pending</p>
-                        <h3 className="text-3xl font-black tracking-tight mb-1">{stats.pending}</h3>
+                        <p className="text-xs font-mono text-secondary uppercase mb-1">Pending</p>
+                        <h3 className="text-2xl font-bold text-warning">{stats.pending}</h3>
                     </div>
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden group"
-                >
-                    <div className="absolute top-0 right-0 p-4 opacity-30 group-hover:scale-110 transition-transform z-0">
-                        <i className="fas fa-check-circle text-4xl text-white"></i>
-                    </div>
+                    <Clock className="absolute right-4 top-4 text-warning/20" size={48} />
+                </div>
+                <div className="bg-surface border border-border rounded-xl p-6 relative overflow-hidden">
                     <div className="relative z-10">
-                        <p className="text-green-100 text-sm font-medium uppercase tracking-wider mb-1">Resolved</p>
-                        <h3 className="text-3xl font-black tracking-tight mb-1">{stats.resolved}</h3>
+                        <p className="text-xs font-mono text-secondary uppercase mb-1">Resolved</p>
+                        <h3 className="text-2xl font-bold text-success">{stats.resolved}</h3>
                     </div>
-                </motion.div>
+                    <CheckCircle className="absolute right-4 top-4 text-success/20" size={48} />
+                </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-surface border border-border rounded-xl p-4">
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div className="md:col-span-2">
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Client</label>
+                        <label className="block text-xs font-mono text-secondary uppercase mb-2">Select Client</label>
                         <Select
-                            className="w-full text-sm font-medium"
+                            className="text-sm"
                             placeholder="Select Client..."
                             value={clientFilter === 'all' ? { value: 'all', label: 'All Clients' } : {
                                 value: clientFilter,
@@ -264,42 +250,36 @@ function RequestReport({ showToast }) {
                                 }))
                             ]}
                             isSearchable={true}
-                            styles={{
-                                control: (base) => ({
-                                    ...base,
-                                    borderColor: '#D1D5DB',
-                                    '&:hover': { borderColor: '#6366F1' },
-                                    borderRadius: '0.5rem',
-                                    padding: '1px',
-                                    boxShadow: 'none'
-                                })
-                            }}
+                            styles={selectStyles}
                         />
                     </div>
+
+                    {/* ... Date Filters using same styling ... */}
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">From Date</label>
+                        <label className="block text-xs font-mono text-secondary uppercase mb-2">From Date</label>
                         <input
                             type="date"
                             value={fromDate}
                             onChange={(e) => setFromDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
                         />
                     </div>
-                    <div className="relative">
-                        <label className="block text-sm font-bold text-gray-700 mb-2">To Date</label>
+                    <div>
+                        <label className="block text-xs font-mono text-secondary uppercase mb-2">To Date</label>
                         <input
                             type="date"
                             value={toDate}
                             onChange={(e) => setToDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
                         />
                     </div>
+
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Status</label>
+                        <label className="block text-xs font-mono text-secondary uppercase mb-2">Status</label>
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium"
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
                         >
                             <option value="all">All Status</option>
                             {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
@@ -307,77 +287,66 @@ function RequestReport({ showToast }) {
                     </div>
 
                     {hasActiveFilters && (
-                        <div className="absolute -bottom-12 right-0 bg-white shadow-lg rounded-lg z-10 hidden md:block">
-                            {/* Desktop reset button could go here or inline */}
+                        <div className="flex items-end">
+                            <Button variant="ghost" size="sm" onClick={resetFilters} className="text-secondary hover:text-primary gap-2">
+                                <RefreshCw size={14} /> Reset
+                            </Button>
                         </div>
                     )}
                 </div>
-                {hasActiveFilters && (
-                    <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
-                        <button
-                            onClick={resetFilters}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-semibold text-sm flex items-center gap-2"
-                        >
-                            <i className="fas fa-times"></i> Reset Filters
-                        </button>
-                    </div>
-                )}
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden backdrop-blur-sm">
+            <div className="bg-surface border border-border rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-100/50 border-b border-gray-100">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-xs font-black text-gray-600 uppercase tracking-wider">Client</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-gray-600 uppercase tracking-wider">Type & Priority</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-gray-600 uppercase tracking-wider">Description</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-gray-600 uppercase tracking-wider">Requested Date</th>
-                                <th className="px-6 py-4 text-left text-xs font-black text-gray-600 uppercase tracking-wider">Completed Date</th>
-                                <th className="px-6 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Status</th>
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-border bg-surface-highlight/30">
+                                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Client</th>
+                                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Type & Priority</th>
+                                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Description</th>
+                                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Requested</th>
+                                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Completed</th>
+                                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Status</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-border">
                             <AnimatePresence>
                                 {paginatedItems.map((req, idx) => (
                                     <motion.tr
                                         key={req.id}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: idx * 0.05 }}
-                                        className="hover:bg-purple-50/10 transition group"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="hover:bg-surface-highlight/50 transition-colors group"
                                     >
-                                        <td className="px-6 py-4 align-top">
-                                            <p className="text-sm font-bold text-gray-900">{req.client_name}</p>
+                                        <td className="p-4">
+                                            <p className="text-sm font-bold text-primary">{req.client_name}</p>
                                         </td>
-                                        <td className="px-6 py-4 align-top">
-                                            <div className="flex flex-col gap-1.5">
-                                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full w-fit ${getRequestTypeBadgeClass(req.request_type)}`}>
-                                                    {req.request_type}
-                                                </span>
-                                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full w-fit ${getPriorityBadgeClass(req.priority)}`}>
+                                        <td className="p-4">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs text-primary">{req.request_type}</span>
+                                                <span className={`text-[10px] font-bold uppercase ${req.priority === 'Urgent' ? 'text-error' : 'text-secondary'}`}>
                                                     {req.priority}
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 align-top">
-                                            <p className="text-sm text-gray-600 line-clamp-2 max-w-xs" title={req.description}>
+                                        <td className="p-4">
+                                            <p className="text-sm text-secondary line-clamp-1 max-w-xs" title={req.description}>
                                                 {req.description}
                                             </p>
                                         </td>
-                                        <td className="px-6 py-4 align-top">
-                                            <span className="text-sm font-bold text-gray-900">
-                                                {new Date(req.created_at).toLocaleDateString('en-GB')}
+                                        <td className="p-4">
+                                            <span className="text-xs text-secondary font-mono">
+                                                {new Date(req.created_at).toLocaleDateString()}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 align-top">
-                                            <span className="text-sm font-bold text-gray-600">
-                                                {req.completed_at ? new Date(req.completed_at).toLocaleDateString('en-GB') : '-'}
+                                        <td className="p-4">
+                                            <span className="text-xs text-secondary font-mono">
+                                                {req.completed_at ? new Date(req.completed_at).toLocaleDateString() : '-'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 align-top text-center">
-                                            <span className={`px-2 py-1 rounded-lg text-xs font-bold ${getStatusBadgeClass(req.status)}`}>
+                                        <td className="p-4 text-center">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${getStatusBadgeClass(req.status)}`}>
                                                 {req.status}
                                             </span>
                                         </td>
@@ -386,12 +355,9 @@ function RequestReport({ showToast }) {
                             </AnimatePresence>
                             {paginatedItems.length === 0 && (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                                        <div className="flex flex-col items-center">
-                                            <i className="fas fa-search text-4xl mb-3 text-gray-300"></i>
-                                            <p className="font-medium">No requests found</p>
-                                            <p className="text-sm text-gray-400 mt-1">Adjust filters to view records</p>
-                                        </div>
+                                    <td colSpan="6" className="p-12 text-center text-secondary">
+                                        <Filter size={32} className="mx-auto mb-2 opacity-20" />
+                                        <p>No requests found</p>
                                     </td>
                                 </tr>
                             )}
@@ -401,82 +367,36 @@ function RequestReport({ showToast }) {
 
                 {/* Pagination */}
                 {filteredRequests.length > 0 && (
-                    <div className="px-6 py-4 border-t border-gray-100 flex flex-col lg:flex-row justify-between items-center gap-6 bg-white">
+                    <div className="p-4 border-t border-border flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-gray-400 uppercase">Show</span>
-                            <select
-                                value={itemsPerPage}
-                                onChange={(e) => {
-                                    setItemsPerPage(Number(e.target.value));
-                                    setCurrentPage(1);
-                                }}
-                                className="bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-lg focus:ring-purple-500 focus:border-purple-500 block p-1"
-                            >
-                                <option value={10}>10</option>
-                                <option value={20}>20</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                            </select>
-                            <span className="text-xs font-bold text-gray-400 uppercase">Entries</span>
+                           <span className="text-xs text-secondary">Rows:</span>
+                           <select
+                             value={itemsPerPage}
+                             onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                             className="bg-background border border-border rounded text-xs text-primary p-1 outline-none"
+                           >
+                              <option value={10}>10</option>
+                              <option value={20}>20</option>
+                              <option value={50}>50</option>
+                           </select>
+                           <span className="text-xs text-secondary ml-4">
+                              {((currentPage-1)*itemsPerPage)+1}-{Math.min(currentPage*itemsPerPage, filteredRequests.length)} of {filteredRequests.length}
+                           </span>
                         </div>
-
-                        <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-2xl border border-gray-100">
-                            <button
-                                onClick={() => setCurrentPage(1)}
-                                disabled={currentPage === 1}
-                                className={`w-8 h-8 flex items-center justify-center rounded-xl transition ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-white hover:text-purple-600 shadow-sm'}`}
-                            >
-                                <i className="fas fa-angle-double-left text-xs"></i>
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1}
-                                className={`w-8 h-8 flex items-center justify-center rounded-xl transition ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-white hover:text-purple-600 shadow-sm'}`}
-                            >
-                                <i className="fas fa-chevron-left text-xs"></i>
-                            </button>
-
-                            <span className="px-3 text-xs font-bold text-gray-600">
-                                {currentPage} / {totalPages}
-                            </span>
-
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage === totalPages}
-                                className={`w-8 h-8 flex items-center justify-center rounded-xl transition ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-white hover:text-purple-600 shadow-sm'}`}
-                            >
-                                <i className="fas fa-chevron-right text-xs"></i>
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(totalPages)}
-                                disabled={currentPage === totalPages}
-                                className={`w-8 h-8 flex items-center justify-center rounded-xl transition ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-white hover:text-purple-600 shadow-sm'}`}
-                            >
-                                <i className="fas fa-angle-double-right text-xs"></i>
-                            </button>
+                        <div className="flex gap-2">
+                           <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft size={16} /></Button>
+                           <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight size={16} /></Button>
                         </div>
                     </div>
                 )}
             </div>
+
             {/* Print Styles */}
             <style>{`
             @media print {
-                body * {
-                visibility: hidden;
-                }
-                #root, #root * {
-                visibility: visible;
-                }
-                .sidebar, header, nav, button, .filters-container, .App > div > div:first-child { 
-                display: none !important; 
-                }
-                .table-container {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                }
-                /* Hide sidebar if it's external to page content */
+                body * { visibility: hidden; }
+                #root, #root * { visibility: visible; }
+                .no-print { display: none !important; }
                 aside { display: none !important; }
             }
             `}</style>
