@@ -1,8 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { BentoGrid, BentoCard } from '../../components/ui/BentoGrid';
+import Button from '../../components/ui/Button';
+import {
+  FolderOpen,
+  FileText,
+  Receipt,
+  PlusCircle,
+  ArrowRight,
+  ShieldCheck,
+  Bell
+} from 'lucide-react';
 
 function ClientDashboard() {
+    const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [stats, setStats] = useState({
         documents: 0,
@@ -31,7 +43,6 @@ function ClientDashboard() {
             ]);
 
             // Filter invoices for this client
-            // Allow loose equality for ID matching to handle string/number differences
             const myClient = clientsRes.data.find(c => String(c.user_id) === String(currentUser.id));
 
             const clientInvoices = myClient
@@ -44,136 +55,133 @@ function ClientDashboard() {
                 documents: docsRes.data.length,
                 returns: returnsRes.data.length,
                 invoices: clientInvoices.length,
-                alerts: pendingInvoices // Using pending invoices as alerts
+                alerts: pendingInvoices
             });
         } catch (error) {
             console.error("Error fetching dashboard stats:", error);
         }
     };
 
-    const StatsCard = ({ icon, color, title, value, gradient }) => (
-        <div className={`p-6 rounded-xl shadow-md border-0 bg-gradient-to-br ${gradient} text-white hover:shadow-lg hover:scale-[1.02] transition-all duration-300`}>
-            <div className="flex items-center justify-between">
-                <div>
-                    <p className="text-white/90 text-sm font-medium uppercase tracking-wide">{title}</p>
-                    <h3 className="text-3xl font-bold mt-2">{value}</h3>
-                </div>
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                    <i className={`${icon} text-xl text-white`}></i>
-                </div>
-            </div>
-        </div>
-    );
-
-    const QuickAction = ({ icon, title, desc, to, color }) => (
-        <Link
-            to={to}
-            className="group flex items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all duration-300 relative overflow-hidden"
-        >
-            <div className={`absolute inset-0 bg-gradient-to-r ${color} opacity-0 group-hover:opacity-5 transition-opacity`}></div>
-
-            <div className={`w-11 h-11 rounded-lg bg-gradient-to-br ${color} text-white flex items-center justify-center mr-3 group-hover:scale-110 transition-transform relative flex-shrink-0`}>
-                <i className={`${icon} text-base`}></i>
-            </div>
-
-            <div className="flex-1 min-w-0 relative">
-                <h3 className="text-sm font-semibold text-gray-800 group-hover:text-gray-900">{title}</h3>
-                <p className="text-xs text-gray-500 mt-0.5 truncate">{desc}</p>
-            </div>
-
-            <i className="fas fa-arrow-right text-gray-300 group-hover:text-gray-600 group-hover:translate-x-0.5 transition-all ml-2 flex-shrink-0"></i>
-        </Link>
-    );
+    const handleNavigate = (path) => {
+        navigate(path);
+    };
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto">
-            {/* Welcome Section - More compact */}
-            <div className="relative bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl shadow-lg p-6 md:p-7 text-white overflow-hidden">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-white opacity-10 rounded-full blur-3xl -mr-12 -mt-12"></div>
-                <div className="absolute bottom-0 left-0 w-40 h-40 bg-white opacity-10 rounded-full blur-3xl -ml-12 -mb-12"></div>
-
-                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-bold mb-1">
-                            Welcome back, {user?.name || 'Client'}! 👋
-                        </h1>
-                        <p className="text-indigo-100 text-sm">Here's what's happening with your account today</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-white/20 backdrop-blur-sm text-xs font-medium border border-white/30">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 mr-2 animate-pulse"></span>
-                            Active
-                        </span>
-                    </div>
-                </div>
+        <div className="max-w-7xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+               <div>
+                  <h1 className="text-2xl font-bold text-primary tracking-tight">Client Dashboard</h1>
+                  <p className="text-secondary text-sm">Welcome back, {user?.name || 'Client'}. Here is your overview.</p>
+               </div>
+               <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 text-xs font-mono text-success bg-success/10 border border-success/20 px-3 py-1 rounded-full">
+                     <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse"></span>
+                     System Operational
+                  </span>
+               </div>
             </div>
 
-            {/* Quick Stats Grid - With Background Container */}
+            {/* Bento Grid Layout */}
+            <BentoGrid className="grid-cols-1 md:grid-cols-4 auto-rows-[minmax(180px,auto)]">
 
+               {/* Stats: Documents */}
+               <BentoCard className="md:col-span-1 md:row-span-1 bg-surface border-l-4 border-l-blue-500" delay={0.1}>
+                  <div className="flex justify-between items-start h-full flex-col">
+                     <div className="flex items-center justify-between w-full">
+                        <p className="text-xs font-mono text-secondary uppercase tracking-wider">My Documents</p>
+                        <FolderOpen className="text-blue-500 opacity-80" size={20} />
+                     </div>
+                     <div>
+                        <h3 className="text-3xl font-bold text-primary mb-1">{stats.documents}</h3>
+                        <p className="text-xs text-secondary">Total Files Stored</p>
+                     </div>
+                  </div>
+               </BentoCard>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <StatsCard
-                    title="Documents"
-                    value={stats.documents}
-                    icon="fas fa-folder-open"
-                    color="blue"
-                    gradient="from-blue-500 to-cyan-500"
-                />
-                <StatsCard
-                    title="Tax Returns"
-                    value={stats.returns}
-                    icon="fas fa-file-invoice"
-                    color="purple"
-                    gradient="from-purple-500 to-indigo-500"
-                />
-                <StatsCard
-                    title="Invoices"
-                    value={stats.invoices}
-                    icon="fas fa-receipt"
-                    color="pink"
-                    gradient="from-pink-500 to-rose-500"
-                />
-            </div>
+               {/* Stats: Returns */}
+               <BentoCard className="md:col-span-1 md:row-span-1 bg-surface border-l-4 border-l-purple-500" delay={0.2}>
+                  <div className="flex justify-between items-start h-full flex-col">
+                     <div className="flex items-center justify-between w-full">
+                        <p className="text-xs font-mono text-secondary uppercase tracking-wider">Tax Returns</p>
+                        <FileText className="text-purple-500 opacity-80" size={20} />
+                     </div>
+                     <div>
+                        <h3 className="text-3xl font-bold text-primary mb-1">{stats.returns}</h3>
+                        <p className="text-xs text-secondary">Filings Processed</p>
+                     </div>
+                  </div>
+               </BentoCard>
 
+               {/* Stats: Invoices */}
+               <BentoCard className="md:col-span-1 md:row-span-1 bg-surface border-l-4 border-l-emerald-500" delay={0.3}>
+                  <div className="flex justify-between items-start h-full flex-col">
+                     <div className="flex items-center justify-between w-full">
+                        <p className="text-xs font-mono text-secondary uppercase tracking-wider">Invoices</p>
+                        <Receipt className="text-emerald-500 opacity-80" size={20} />
+                     </div>
+                     <div>
+                        <h3 className="text-3xl font-bold text-primary mb-1">{stats.invoices}</h3>
+                        <p className="text-xs text-secondary">Total Invoices</p>
+                     </div>
+                  </div>
+               </BentoCard>
 
-            {/* Quick Actions - Horizontal Layout */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-gray-800">Quick Actions</h2>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <QuickAction
-                        to="/client/documents"
-                        title="View Documents"
-                        desc="Access your stored files"
-                        icon="fas fa-folder-open"
-                        color="from-blue-500 to-cyan-500"
-                    />
-                    <QuickAction
-                        to="/client/requests"
-                        title="New Request"
-                        desc="Submit a query or request"
-                        icon="fas fa-plus-circle"
-                        color="from-purple-500 to-indigo-500"
-                    />
-                    <QuickAction
-                        to="/client/returns"
-                        title="View Returns"
-                        desc="Check your tax return status"
-                        icon="fas fa-history"
-                        color="from-green-500 to-emerald-500"
-                    />
-                    <QuickAction
-                        to="/client/invoices"
-                        title="View Invoices"
-                        desc="Manage payments & billing"
-                        icon="fas fa-file-invoice-dollar"
-                        color="from-pink-500 to-rose-500"
-                    />
-                </div>
-            </div>
+               {/* Alerts / Pending Actions */}
+               <BentoCard className="md:col-span-1 md:row-span-1 bg-surface border-l-4 border-l-amber-500" delay={0.4}>
+                  <div className="flex justify-between items-start h-full flex-col">
+                     <div className="flex items-center justify-between w-full">
+                        <p className="text-xs font-mono text-secondary uppercase tracking-wider">Alerts</p>
+                        <Bell className="text-amber-500 opacity-80" size={20} />
+                     </div>
+                     <div>
+                        <h3 className="text-3xl font-bold text-primary mb-1">{stats.alerts}</h3>
+                        <p className="text-xs text-secondary">Pending Actions</p>
+                     </div>
+                  </div>
+               </BentoCard>
 
+               {/* Quick Actions Area */}
+               <BentoCard className="md:col-span-2 md:row-span-1 flex flex-col justify-center" delay={0.5}>
+                  <h3 className="text-lg font-bold text-primary mb-4">Quick Actions</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                     <Button
+                       variant="secondary"
+                       onClick={() => handleNavigate('/client/requests')}
+                       className="justify-between group hover:border-accent/50"
+                     >
+                        <span className="flex items-center gap-2"><PlusCircle size={16} className="text-accent" /> New Request</span>
+                        <ArrowRight size={14} className="text-secondary group-hover:text-accent transition-colors" />
+                     </Button>
+                     <Button
+                       variant="secondary"
+                       onClick={() => handleNavigate('/client/documents')}
+                       className="justify-between group hover:border-accent/50"
+                     >
+                        <span className="flex items-center gap-2"><FolderOpen size={16} className="text-accent" /> View Docs</span>
+                        <ArrowRight size={14} className="text-secondary group-hover:text-accent transition-colors" />
+                     </Button>
+                  </div>
+               </BentoCard>
 
+               {/* Info / Promo Card */}
+               <BentoCard className="md:col-span-2 md:row-span-1 relative overflow-hidden group" delay={0.6}>
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 pointer-events-none"></div>
+                  <div className="relative z-10 flex flex-col justify-center h-full">
+                     <div className="flex items-center gap-3 mb-2">
+                        <ShieldCheck className="text-accent" size={24} />
+                        <h3 className="text-lg font-bold text-primary">Secure & Compliant</h3>
+                     </div>
+                     <p className="text-sm text-secondary leading-relaxed max-w-md">
+                        Your financial data is protected with enterprise-grade security.
+                        We ensure full compliance with the latest regulations for your peace of mind.
+                     </p>
+                  </div>
+                  {/* Decorative background element */}
+                  <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-accent/5 rounded-full blur-3xl group-hover:bg-accent/10 transition-colors duration-500"></div>
+               </BentoCard>
+
+            </BentoGrid>
         </div>
     );
 }

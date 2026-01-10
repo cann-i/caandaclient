@@ -3,7 +3,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import Select from 'react-select';
 import { exportToExcel } from '../../../utils/exportUtils';
+import {
+  FileText,
+  Printer,
+  Download,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Eye,
+  Lock,
+  Calendar,
+  FolderOpen
+} from 'lucide-react';
+import Button from '../../../components/ui/Button';
 
+// Set base URL for Axios
 const API_BASE_URL = 'http://localhost:5000/api';
 
 function DocumentReport({ showToast }) {
@@ -60,8 +75,6 @@ function DocumentReport({ showToast }) {
     return true;
   }, [fromDate, toDate]);
 
-
-
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
       const matchesClient = clientFilter === 'all' || doc.client_id === Number(clientFilter);
@@ -83,8 +96,6 @@ function DocumentReport({ showToast }) {
   const hasActiveFilters = useMemo(() => {
     return clientFilter !== 'all' || categoryFilter !== 'all' || yearFilter !== 'all' || fromDate !== '' || toDate !== '' || searchQuery !== '';
   }, [clientFilter, categoryFilter, yearFilter, fromDate, toDate, searchQuery]);
-
-
 
   const paginatedRows = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -119,292 +130,252 @@ function DocumentReport({ showToast }) {
     setCurrentPage(1);
   };
 
+  const selectStyles = {
+    control: (base) => ({
+      ...base,
+      backgroundColor: '#121212',
+      borderColor: '#2A2A2A',
+      color: '#E0E0E0',
+      '&:hover': { borderColor: '#3B82F6' },
+    }),
+    menu: (base) => ({
+      ...base,
+      backgroundColor: '#121212',
+      border: '1px solid #2A2A2A',
+    }),
+    option: (base, state) => ({
+      ...base,
+      backgroundColor: state.isFocused ? '#1E1E1E' : '#121212',
+      color: '#E0E0E0',
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: '#E0E0E0',
+    }),
+    input: (base) => ({
+      ...base,
+      color: '#E0E0E0',
+    }),
+    placeholder: (base) => ({
+        ...base,
+        color: '#A0A0A0',
+    })
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-primary tracking-tight">Document Reports</h1>
+          <p className="text-sm text-secondary">Analyze document uploads, visibility, and categories.</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => window.print()} className="gap-2">
+            <Printer size={16} /> Print
+          </Button>
+          <Button variant="accent" onClick={handleExport} className="gap-2">
+            <Download size={16} /> Export Excel
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-surface border border-border rounded-xl p-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-mono text-secondary uppercase mb-2">Client</label>
+            <Select
+              className="text-sm"
+              placeholder="Search clients..."
+              value={clientFilter === 'all' ? { value: 'all', label: 'All Clients' } : {
+                value: clientFilter,
+                label: clients.find(c => c.id === Number(clientFilter))?.client_name || clientFilter
+              }}
+              onChange={(opt) => {
+                setClientFilter(opt ? opt.value : 'all');
+                setCurrentPage(1);
+              }}
+              options={[
+                { value: 'all', label: 'All Clients' },
+                ...clients.map(client => ({
+                  value: client.id,
+                  label: client.client_name
+                }))
+              ]}
+              isSearchable={true}
+              styles={selectStyles}
+            />
+          </div>
+
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Document Reports</h1>
-            <p className="text-sm text-gray-500">Analyze document uploads, visibility, and category distribution</p>
+            <label className="block text-xs font-mono text-secondary uppercase mb-2">From Date</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => { setFromDate(e.target.value); setCurrentPage(1); }}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
+            />
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2 font-semibold shadow-sm"
+
+          <div>
+            <label className="block text-xs font-mono text-secondary uppercase mb-2">To Date</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => { setToDate(e.target.value); setCurrentPage(1); }}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono text-secondary uppercase mb-2">Category</label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-primary text-sm focus:border-accent outline-none"
             >
-              <i className="fas fa-print"></i>
-              Print
-            </button>
-            <button
-              onClick={handleExport}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 font-semibold shadow-sm"
-            >
-              <i className="fas fa-file-excel"></i>
-              Export Excel
-            </button>
+              <option value="all">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.category_name}</option>
+              ))}
+            </select>
           </div>
+
+          {hasActiveFilters && (
+            <div className="flex items-end">
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-secondary hover:text-primary gap-2">
+                <RefreshCw size={14} /> Reset
+              </Button>
+            </div>
+          )}
         </div>
+      </div>
 
-
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">Client</label>
-              <Select
-                className="w-full text-sm font-medium"
-                placeholder="Search clients..."
-                value={clientFilter === 'all' ? { value: 'all', label: 'All Clients' } : {
-                  value: clientFilter,
-                  label: clients.find(c => c.id === Number(clientFilter))?.client_name || clientFilter
-                }}
-                onChange={(opt) => {
-                  setClientFilter(opt ? opt.value : 'all');
-                  setCurrentPage(1);
-                }}
-                options={[
-                  { value: 'all', label: 'All Clients' },
-                  ...clients.map(client => ({
-                    value: client.id,
-                    label: client.client_name
-                  }))
-                ]}
-                isSearchable={true}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    borderColor: '#D1D5DB',
-                    '&:hover': { borderColor: '#10B981' },
-                    borderRadius: '0.5rem',
-                    padding: '1px',
-                    boxShadow: 'none'
-                  })
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">From Date</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => { setFromDate(e.target.value); setCurrentPage(1); }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">To Date</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => { setToDate(e.target.value); setCurrentPage(1); }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Category</label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => {
-                  setCategoryFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-              >
-                <option value="all">All Categories</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.category_name}</option>
-                ))}
-              </select>
-            </div>
-
-            {hasActiveFilters && (
-              <div className="flex items-end">
-                <button
-                  onClick={resetFilters}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-semibold"
-                >
-                  <i className="fas fa-times mr-2"></i>
-                  Reset
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100/50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-black text-gray-600 uppercase tracking-wider">Client & Document</th>
-                  <th className="px-4 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Category</th>
-                  <th className="px-4 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Year</th>
-                  <th className="px-4 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Upload Date</th>
-                  <th className="px-4 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Size</th>
-                  <th className="px-6 py-4 text-center text-xs font-black text-gray-600 uppercase tracking-wider">Visibility</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                <AnimatePresence>
-                  {paginatedRows.map((doc, index) => (
+      {/* Table */}
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-surface-highlight/30">
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium">Client & Document</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Category</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Year</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Upload Date</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Size</th>
+                <th className="p-4 text-xs font-mono text-secondary uppercase font-medium text-center">Visibility</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <AnimatePresence>
+                {paginatedRows.length > 0 ? (
+                  paginatedRows.map((doc) => (
                     <motion.tr
                       key={doc.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="hover:bg-emerald-50/30 transition-all duration-300 group"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="hover:bg-surface-highlight/50 transition-colors group"
                     >
-                      <td className="px-6 py-4">
+                      <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-gray-900">{doc.file_name}</span>
-                          <span className="text-xs text-gray-500">{doc.clientName}</span>
+                          <span className="font-bold text-primary text-sm">{doc.file_name}</span>
+                          <span className="text-xs text-secondary">{doc.clientName}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-center">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 uppercase tracking-tight">
+                      <td className="p-4 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20 uppercase tracking-tight">
                           {doc.type}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-center">
-                        <span className="text-sm font-bold text-gray-700">
+                      <td className="p-4 text-center">
+                        <span className="text-sm font-mono text-primary">
                           {doc.financial_year || '-'}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-center">
-                        <span className="text-sm text-gray-600">
+                      <td className="p-4 text-center">
+                        <span className="text-xs text-secondary font-mono">
                           {new Date(doc.created_at).toLocaleDateString()}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-center">
-                        <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      <td className="p-4 text-center">
+                        <span className="text-xs font-mono text-secondary">
                           {(doc.file_size / 1024).toFixed(1)} KB
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="p-4 text-center">
                         {doc.is_visible_to_client ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide bg-green-100 text-green-700 border border-green-200">
-                            <i className="fas fa-eye text-[8px]"></i>
-                            Client Shared
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-success/10 text-success border border-success/20">
+                            <Eye size={10} /> Shared
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide bg-amber-100 text-amber-700 border border-amber-200">
-                            <i className="fas fa-lock text-[8px]"></i>
-                            Internal Only
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-warning/10 text-warning border border-warning/20">
+                            <Lock size={10} /> Internal
                           </span>
                         )}
                       </td>
                     </motion.tr>
-                  ))}
-                </AnimatePresence>
-
-                {paginatedRows.length === 0 && (
+                  ))
+                ) : (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                      <div className="flex flex-col items-center">
-                        <i className="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
-                        <p className="font-medium">No documents found matching your criteria</p>
+                    <td colSpan="6" className="p-12 text-center text-secondary">
+                      <div className="flex flex-col items-center gap-2">
+                        <FolderOpen size={32} className="opacity-20" />
+                        <p>No documents found matching your criteria</p>
                       </div>
                     </td>
                   </tr>
                 )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {filteredDocuments.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-100 flex flex-col lg:flex-row justify-between items-center gap-6 bg-white">
-              <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Show</span>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="bg-transparent text-sm font-bold text-emerald-600 outline-none cursor-pointer"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                  </select>
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Entries</span>
-                </div>
-                <p className="text-sm text-gray-500 font-medium whitespace-nowrap">
-                  Showing <span className="text-gray-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-gray-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredDocuments.length)}</span> of <span className="text-gray-900 font-bold">{filteredDocuments.length}</span> results
-                </p>
-              </div>
-
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-gray-50 p-1 rounded-2xl border border-gray-100 shadow-sm">
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-gray-600 hover:bg-white hover:text-emerald-600 hover:shadow-sm'}`}
-                    >
-                      <i className="fas fa-angle-double-left text-xs"></i>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-gray-600 hover:bg-white hover:text-emerald-600 hover:shadow-sm'}`}
-                    >
-                      <i className="fas fa-chevron-left text-xs"></i>
-                    </button>
-
-                    <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-gray-600 hover:bg-white hover:text-emerald-600 hover:shadow-sm'}`}
-                    >
-                      <i className="fas fa-chevron-right text-xs"></i>
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed opacity-50' : 'text-gray-600 hover:bg-white hover:text-emerald-600 hover:shadow-sm'}`}
-                    >
-                      <i className="fas fa-angle-double-right text-xs"></i>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+              </AnimatePresence>
+            </tbody>
+          </table>
         </div>
 
-        {/* Print Styles */}
-        <style>{`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            #root, #root * {
-              visibility: visible;
-            }
-            .sidebar, header, nav, .no-print, button { 
-              display: none !important; 
-            }
-          }
-        `}</style>
+        {/* Pagination */}
+        {filteredDocuments.length > 0 && (
+          <div className="p-4 border-t border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+               <span className="text-xs text-secondary">Rows:</span>
+               <select
+                 value={itemsPerPage}
+                 onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                 className="bg-background border border-border rounded text-xs text-primary p-1 outline-none"
+               >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+               </select>
+               <span className="text-xs text-secondary ml-4">
+                  {((currentPage-1)*itemsPerPage)+1}-{Math.min(currentPage*itemsPerPage, filteredDocuments.length)} of {filteredDocuments.length}
+               </span>
+            </div>
+            <div className="flex gap-2">
+               <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft size={16} /></Button>
+               <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight size={16} /></Button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Print Styles */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #root, #root * { visibility: visible; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
