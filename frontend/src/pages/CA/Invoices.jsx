@@ -22,7 +22,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  DollarSign
+  DollarSign,
+  MinusCircle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 
@@ -42,6 +43,17 @@ function Invoices({ showToast }) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
+  // New Invoice State
+  const [clients, setClients] = useState([]);
+  const [services, setServices] = useState([]);
+  const [newInvoice, setNewInvoice] = useState({
+    clientId: null,
+    date: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    items: [],
+    notes: ''
+  });
+
   // ESC key handler
   useEffect(() => {
     const handleEsc = (e) => {
@@ -57,21 +69,41 @@ function Invoices({ showToast }) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [showCreateModal, showViewModal, showPaymentModal, showStatusModal, showEditModal]);
 
-  useEffect(() => {
-    const fetchInvoices = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get('http://localhost:5000/api/invoices');
-        setInvoices(response.data);
-      } catch (error) {
-        console.error("Error fetching invoices:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchInvoices = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('http://localhost:5000/api/invoices');
+      setInvoices(response.data);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchInvoices();
   }, []);
+
+  // Fetch clients and services for modal
+  useEffect(() => {
+    if (showCreateModal || showEditModal) {
+      const fetchData = async () => {
+        try {
+          const [clientsRes, servicesRes] = await Promise.all([
+            axios.get('http://localhost:5000/api/clients'),
+            axios.get('http://localhost:5000/api/services')
+          ]);
+          setClients(clientsRes.data);
+          setServices(servicesRes.data);
+        } catch (error) {
+          console.error("Error fetching dependencies:", error);
+          showToast('Failed to load form data', 'error');
+        }
+      };
+      fetchData();
+    }
+  }, [showCreateModal, showEditModal, showToast]);
 
   useEffect(() => {
     if (location.state?.clientName) {
@@ -190,6 +222,89 @@ function Invoices({ showToast }) {
   };
 
   const totals = calculateTotals();
+
+  // Create Invoice Logic
+  const handleAddItem = () => {
+    setNewInvoice(prev => ({
+      ...prev,
+      items: [...prev.items, { serviceId: '', description: '', quantity: 1, rate: 0, gst: 18 }]
+    }));
+  };
+
+  const handleRemoveItem = (index) => {
+    setNewInvoice(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleItemChange = (index, field, value) => {
+    const updatedItems = [...newInvoice.items];
+    updatedItems[index][field] = value;
+
+    // Auto-fill if service selected
+    if (field === 'serviceId') {
+      const service = services.find(s => s.id === value);
+      if (service) {
+        updatedItems[index].description = service.service_name;
+        updatedItems[index].rate = service.default_rate || 0;
+        updatedItems[index].gst = service.gst_rate || 18;
+      }
+    }
+
+    setNewInvoice(prev => ({ ...prev, items: updatedItems }));
+  };
+
+  const calculateInvoiceTotals = (items) => {
+    let subtotal = 0;
+    let totalTax = 0;
+
+    items.forEach(item => {
+      const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
+      const tax = (amount * (parseFloat(item.gst) || 0)) / 100;
+      subtotal += amount;
+      totalTax += tax;
+    });
+
+    return { subtotal, totalTax, total: subtotal + totalTax };
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!newInvoice.clientId) {
+      showToast('Please select a client', 'error');
+      return;
+    }
+    if (newInvoice.items.length === 0) {
+      showToast('Please add at least one item', 'error');
+      return;
+    }
+
+    const { subtotal, totalTax, total } = calculateInvoiceTotals(newInvoice.items);
+
+    try {
+      const payload = {
+        clientId: newInvoice.clientId,
+        date: newInvoice.date,
+        dueDate: newInvoice.dueDate,
+        items: newInvoice.items,
+        amount: subtotal,
+        taxAmount: totalTax,
+        totalAmount: total,
+        description: newInvoice.notes,
+        status: 'Pending'
+      };
+
+      await axios.post('http://localhost:5000/api/invoices', payload);
+      showToast('Invoice created successfully', 'success');
+      setShowCreateModal(false);
+      setNewInvoice({ clientId: null, date: new Date().toISOString().split('T')[0], dueDate: '', items: [], notes: '' });
+      fetchInvoices();
+    } catch (error) {
+      console.error(error);
+      showToast(error.response?.data?.error || 'Failed to create invoice', 'error');
+    }
+  };
+
 
   // Select styles
   const selectStyles = {
@@ -374,7 +489,7 @@ function Invoices({ showToast }) {
                               </button>
                            </td>
                            <td className="p-4 text-right">
-                              <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center justify-end gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
                                  <button onClick={() => { setSelectedInvoice(invoice); setShowViewModal(true); }} className="p-1.5 hover:bg-surface-highlight rounded text-secondary hover:text-accent"><Eye size={16} /></button>
                                  <button onClick={() => { if(invoice.status !== 'Paid') { setSelectedInvoice(invoice); setShowEditModal(true); } }} disabled={invoice.status === 'Paid'} className={`p-1.5 hover:bg-surface-highlight rounded ${invoice.status === 'Paid' ? 'text-border cursor-not-allowed' : 'text-secondary hover:text-accent'}`}><Edit size={16} /></button>
                                  <button onClick={() => { if(invoice.status !== 'Paid') { setSelectedInvoice(invoice); setShowPaymentModal(true); } }} disabled={invoice.status === 'Paid'} className={`p-1.5 hover:bg-surface-highlight rounded ${invoice.status === 'Paid' ? 'text-border cursor-not-allowed' : 'text-secondary hover:text-success'}`}><CreditCard size={16} /></button>
@@ -412,23 +527,131 @@ function Invoices({ showToast }) {
          )}
       </div>
 
-      {/* Placeholders for Modals - functionality is complex, I will implement barebones for now to satisfy requirements */}
       {/* Create Modal */}
       <AnimatePresence>
         {showCreateModal && (
            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} className="bg-surface border border-border rounded-xl w-full max-w-lg p-6">
-                 <h2 className="text-xl font-bold text-primary mb-4">Create Invoice</h2>
-                 <p className="text-secondary text-sm mb-4">Feature not fully implemented in this demo.</p>
-                 <div className="flex justify-end gap-2">
-                    <Button variant="ghost" onClick={() => setShowCreateModal(false)}>Close</Button>
+              <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} className="bg-surface border border-border rounded-xl w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto">
+                 <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-primary">Create Invoice</h2>
+                    <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}><X size={20} /></Button>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                       <label className="block text-xs font-mono text-secondary uppercase mb-2">Client</label>
+                       <Select
+                         className="text-sm"
+                         options={clients.map(c => ({ value: c.id, label: c.business_name || c.client_name }))}
+                         onChange={(opt) => setNewInvoice({ ...newInvoice, clientId: opt?.value })}
+                         styles={selectStyles}
+                         placeholder="Select Client..."
+                       />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                       <div>
+                          <label className="block text-xs font-mono text-secondary uppercase mb-2">Invoice Date</label>
+                          <input type="date" className="w-full bg-background border border-border rounded-lg p-2 text-primary text-sm outline-none focus:border-accent"
+                             value={newInvoice.date} onChange={(e) => setNewInvoice({ ...newInvoice, date: e.target.value })} />
+                       </div>
+                       <div>
+                          <label className="block text-xs font-mono text-secondary uppercase mb-2">Due Date</label>
+                          <input type="date" className="w-full bg-background border border-border rounded-lg p-2 text-primary text-sm outline-none focus:border-accent"
+                             value={newInvoice.dueDate} onChange={(e) => setNewInvoice({ ...newInvoice, dueDate: e.target.value })} />
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                       <label className="block text-xs font-mono text-secondary uppercase">Items</label>
+                       <Button variant="ghost" size="sm" onClick={handleAddItem} className="text-accent gap-1 text-xs"><Plus size={14} /> Add Item</Button>
+                    </div>
+                    <div className="bg-background border border-border rounded-lg overflow-hidden">
+                       <table className="w-full text-left">
+                          <thead className="bg-surface-highlight/30 text-xs font-mono text-secondary uppercase">
+                             <tr>
+                                <th className="p-3">Service / Description</th>
+                                <th className="p-3 w-24">Qty</th>
+                                <th className="p-3 w-32">Rate</th>
+                                <th className="p-3 w-24">GST %</th>
+                                <th className="p-3 w-32 text-right">Amount</th>
+                                <th className="p-3 w-10"></th>
+                             </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                             {newInvoice.items.length > 0 ? newInvoice.items.map((item, i) => (
+                                <tr key={i}>
+                                   <td className="p-2">
+                                      <select className="w-full bg-surface border border-border rounded p-1 text-xs text-primary mb-1"
+                                         value={item.serviceId} onChange={(e) => handleItemChange(i, 'serviceId', Number(e.target.value))}>
+                                         <option value="">Select Service...</option>
+                                         {services.map(s => <option key={s.id} value={s.id}>{s.service_name}</option>)}
+                                      </select>
+                                      <input type="text" placeholder="Description" className="w-full bg-transparent border-b border-border text-xs text-primary outline-none focus:border-accent"
+                                         value={item.description} onChange={(e) => handleItemChange(i, 'description', e.target.value)} />
+                                   </td>
+                                   <td className="p-2">
+                                      <input type="number" min="1" className="w-full bg-surface border border-border rounded p-1 text-xs text-primary"
+                                         value={item.quantity} onChange={(e) => handleItemChange(i, 'quantity', e.target.value)} />
+                                   </td>
+                                   <td className="p-2">
+                                      <input type="number" min="0" className="w-full bg-surface border border-border rounded p-1 text-xs text-primary"
+                                         value={item.rate} onChange={(e) => handleItemChange(i, 'rate', e.target.value)} />
+                                   </td>
+                                   <td className="p-2">
+                                      <input type="number" min="0" className="w-full bg-surface border border-border rounded p-1 text-xs text-primary"
+                                         value={item.gst} onChange={(e) => handleItemChange(i, 'gst', e.target.value)} />
+                                   </td>
+                                   <td className="p-2 text-right text-sm font-mono text-primary">
+                                      ₹{((item.quantity * item.rate) * (1 + item.gst/100)).toFixed(2)}
+                                   </td>
+                                   <td className="p-2 text-center">
+                                      <button onClick={() => handleRemoveItem(i)} className="text-secondary hover:text-error"><MinusCircle size={16} /></button>
+                                   </td>
+                                </tr>
+                             )) : (
+                                <tr><td colSpan={6} className="p-4 text-center text-xs text-secondary">No items added</td></tr>
+                             )}
+                          </tbody>
+                       </table>
+                    </div>
+                 </div>
+
+                 <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                    <div className="w-full md:w-1/2">
+                       <label className="block text-xs font-mono text-secondary uppercase mb-2">Notes</label>
+                       <textarea className="w-full bg-background border border-border rounded-lg p-2 text-primary text-sm h-24 outline-none focus:border-accent resize-none"
+                          placeholder="Payment terms, notes..."
+                          value={newInvoice.notes} onChange={(e) => setNewInvoice({ ...newInvoice, notes: e.target.value })}
+                       ></textarea>
+                    </div>
+                    <div className="w-full md:w-1/3 bg-background border border-border rounded-lg p-4 space-y-2">
+                       <div className="flex justify-between text-sm text-secondary">
+                          <span>Subtotal</span>
+                          <span>₹{calculateInvoiceTotals(newInvoice.items).subtotal.toFixed(2)}</span>
+                       </div>
+                       <div className="flex justify-between text-sm text-secondary">
+                          <span>Tax (GST)</span>
+                          <span>₹{calculateInvoiceTotals(newInvoice.items).totalTax.toFixed(2)}</span>
+                       </div>
+                       <div className="h-px bg-border my-2"></div>
+                       <div className="flex justify-between text-lg font-bold text-primary">
+                          <span>Total</span>
+                          <span>₹{calculateInvoiceTotals(newInvoice.items).total.toFixed(2)}</span>
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="mt-8 flex justify-end gap-3">
+                    <Button variant="ghost" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                    <Button variant="accent" onClick={handleCreateInvoice}>Create Invoice</Button>
                  </div>
               </motion.div>
            </div>
         )}
       </AnimatePresence>
 
-      {/* Similar placeholders for other modals to avoid regressions in UI flow if logic is complex to restore fully without more files */}
       {/* View Modal */}
       <AnimatePresence>
         {showViewModal && selectedInvoice && (
