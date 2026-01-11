@@ -265,26 +265,29 @@ router.put('/:id', async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const { client, date, dueDate, items, amount, taxAmount, totalAmount, description, status, notes } = req.body;
+        const { clientId: reqClientId, client, date, dueDate, items, amount, taxAmount, totalAmount, description, status, notes } = req.body;
         const invoiceId = req.params.id;
 
         // Use 'notes' from body if valid, otherwise fallback to description (legacy behavior), or empty string
         const invoiceNotes = notes !== undefined ? notes : (description || '');
 
-        // 1. Find Client ID if client name changed
-        const [clients] = await connection.query(`
-            SELECT c.id 
-            FROM clients c
-            LEFT JOIN users u ON c.user_id = u.id 
-            WHERE c.business_name = ? OR u.name = ?
-        `, [client, client]);
+        let clientId = reqClientId;
 
-        if (clients.length === 0) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Client not found in database.' });
+        // 1. Find Client ID if not provided directly
+        if (!clientId) {
+            const [clients] = await connection.query(`
+                SELECT c.id
+                FROM clients c
+                LEFT JOIN users u ON c.user_id = u.id
+                WHERE c.business_name = ? OR u.name = ?
+            `, [client, client]);
+
+            if (clients.length === 0) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Client not found in database.' });
+            }
+            clientId = clients[0].id;
         }
-
-        const clientId = clients[0].id;
 
         // 2. Update Invoice Details
         await connection.query(`
