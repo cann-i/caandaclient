@@ -314,7 +314,8 @@ function Dashboard({ showToast }) {
             </div>
           </div>
 
-          <div className="flex-1 min-h-[300px] w-full">
+          <div className="flex-1 w-full" style={{ minHeight: '300px', height: '300px' }}>
+            {revenueData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -349,6 +350,11 @@ function Dashboard({ showToast }) {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full text-secondary">
+                    <p>No revenue data available</p>
+                </div>
+            )}
           </div>
         </BentoCard>
 
