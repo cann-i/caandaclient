@@ -123,14 +123,23 @@ function Documents({ showToast }) {
   };
 
   const previewDocument = (doc) => {
-    const fileUrl = `http://localhost:5000/${doc.file_path}`;
+    // Ensure the path is correct. backend serves uploads at /uploads
+    // doc.file_path should already be relative like 'uploads/documents/...'
+    if (!doc.file_path) {
+        showToast('File path is missing', 'error');
+        return;
+    }
+    // Remove duplicate slashes if any
+    const cleanPath = doc.file_path.replace(/^\/+/, '');
+    const fileUrl = `http://localhost:5000/${cleanPath}`;
     window.open(fileUrl, '_blank');
   };
 
   const downloadDocument = async (doc) => {
     try {
       showToast(`Downloading ${doc.file_name}...`, 'info');
-      const fileUrl = `http://localhost:5000/${doc.file_path}`;
+      const cleanPath = doc.file_path.replace(/^\/+/, '');
+      const fileUrl = `http://localhost:5000/${cleanPath}`;
 
       const response = await fetch(fileUrl);
       if (!response.ok) throw new Error('Network response was not ok');
@@ -343,7 +352,7 @@ function Documents({ showToast }) {
                        <span className="text-xs text-secondary font-mono">{(doc.file_size / 1024).toFixed(1)} KB</span>
                     </td>
                     <td className="p-4 text-right">
-                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <div className="flex items-center justify-end gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => previewDocument(doc)} className="p-1.5 hover:bg-surface-highlight rounded text-secondary hover:text-accent transition-colors"><Eye size={16} /></button>
                           <button onClick={() => downloadDocument(doc)} className="p-1.5 hover:bg-surface-highlight rounded text-secondary hover:text-success transition-colors"><Download size={16} /></button>
                           <button onClick={() => deleteDocument(doc.id, doc.document_name)} className="p-1.5 hover:bg-surface-highlight rounded text-secondary hover:text-error transition-colors"><Trash2 size={16} /></button>

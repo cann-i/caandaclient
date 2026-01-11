@@ -146,21 +146,29 @@ function Dashboard({ showToast }) {
       };
     }
 
-    invoices.forEach(inv => {
-      const date = inv.date ? new Date(inv.date) : new Date(inv.createdAt);
-      if (!isNaN(date)) {
-        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        if (months[key]) {
-          const amount = parseFloat(inv.totalAmount) || 0;
-          const paid = parseFloat(inv.paidAmount) || 0;
-          const pending = parseFloat(inv.balanceAmount) || (amount - paid); // Fallback calculation
+    if (invoices && invoices.length > 0) {
+        invoices.forEach(inv => {
+          // Use invoice_date (mapped to date) or created_at. Ensure it's not null.
+          const rawDate = inv.date || inv.createdAt;
+          if (!rawDate) return;
 
-          months[key].revenue += amount;
-          months[key].paid += paid;
-          months[key].pending += pending;
-        }
-      }
-    });
+          const date = new Date(rawDate);
+
+          if (!isNaN(date.getTime())) {
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            // Only aggregate for the months we are displaying (last 6 months)
+            if (months[key]) {
+              const amount = parseFloat(inv.totalAmount) || 0;
+              const paid = parseFloat(inv.paidAmount) || 0;
+              const pending = parseFloat(inv.balanceAmount) || (amount - paid);
+
+              months[key].revenue += amount;
+              months[key].paid += paid;
+              months[key].pending += pending;
+            }
+          }
+        });
+    }
 
     setRevenueData(Object.values(months));
   };

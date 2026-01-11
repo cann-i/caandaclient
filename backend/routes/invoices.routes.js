@@ -163,26 +163,36 @@ router.post('/', async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const { client, clientEmail, date, dueDate, items, amount, taxAmount, totalAmount, description, status } = req.body;
+        const { clientId: reqClientId, client, clientEmail, date, dueDate, items, amount, taxAmount, totalAmount, description, status } = req.body;
 
-        // 1. Find Client ID from client name
-        // Fixed: Use business_name instead of client_name
-        // 1. Find Client ID from client name/business name
-        // Improved lookup: check business_name first, or client_name in users table
-        const [clients] = await connection.query(`
-            SELECT c.id, c.user_id 
-            FROM clients c
-            LEFT JOIN users u ON c.user_id = u.id 
-            WHERE c.business_name = ? OR u.name = ?
-        `, [client, client]);
+        let clientId = reqClientId;
+        let clientUserId = null;
 
-        if (clients.length === 0) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Client not found in database. Check spelling or create client first.' });
+        // 1. Find Client ID if not provided
+        if (!clientId) {
+            // Improved lookup: check business_name first, or client_name in users table
+            const [clients] = await connection.query(`
+                SELECT c.id, c.user_id
+                FROM clients c
+                LEFT JOIN users u ON c.user_id = u.id
+                WHERE c.business_name = ? OR u.name = ?
+            `, [client, client]);
+
+            if (clients.length === 0) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Client not found in database. Check spelling or create client first.' });
+            }
+            clientId = clients[0].id;
+            clientUserId = clients[0].user_id;
+        } else {
+            // Verify client exists and get user_id
+            const [clients] = await connection.query('SELECT user_id FROM clients WHERE id = ?', [clientId]);
+            if (clients.length === 0) {
+                 await connection.rollback();
+                 return res.status(400).json({ error: 'Invalid Client ID.' });
+            }
+            clientUserId = clients[0].user_id;
         }
-
-        const clientId = clients[0].id;
-        const clientUserId = clients[0].user_id;
 
         // 2. Generate Sequential Invoice Number (INVYYYYMM-XXXX)
         const dateObj = new Date();
