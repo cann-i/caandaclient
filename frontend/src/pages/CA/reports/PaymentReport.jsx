@@ -88,7 +88,7 @@ function PaymentReport({ showToast }) {
       const clientKey = inv.client;
       if (!summaries[clientKey]) {
         const clientObj = clients.find(c =>
-          c.client_name?.trim().toLowerCase() === inv.client?.trim().toLowerCase()
+          c.business_name?.trim().toLowerCase() === inv.client?.trim().toLowerCase()
         );
 
         summaries[clientKey] = {
@@ -119,7 +119,7 @@ function PaymentReport({ showToast }) {
 
     Object.keys(summaries).forEach(name => {
       const clientObj = clients.find(c =>
-        c.client_name?.trim().toLowerCase() === name?.trim().toLowerCase()
+        c.business_name?.trim().toLowerCase() === name?.trim().toLowerCase()
       );
       if (clientObj) {
         summaries[name].history = payments.filter(p => p.client_id === clientObj.id);
