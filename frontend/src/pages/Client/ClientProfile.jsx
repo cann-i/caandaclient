@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import axios from '../../api/axios';
+import { BASE_URL } from '../../config';
 import {
   User,
   Mail,
@@ -73,7 +74,7 @@ function ClientProfile({ showToast }) {
                     return;
                 }
 
-                const response = await axios.get('http://localhost:5000/api/auth/profile', {
+                const response = await axios.get('/auth/profile', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -87,7 +88,7 @@ function ClientProfile({ showToast }) {
                     joinDate: new Date(data.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
                     status: data.is_active ? 'Active' : 'Inactive',
                     avatar: data.profile_image
-                        ? (data.profile_image.startsWith('http') ? data.profile_image : `http://localhost:5000${data.profile_image}`)
+                        ? (data.profile_image.startsWith('http') ? data.profile_image : `${BASE_URL}${data.profile_image}`)
                         : null
                 };
 
@@ -151,7 +152,7 @@ function ClientProfile({ showToast }) {
                 data.append('avatar', formData.avatarFile);
             }
 
-            const response = await axios.put('http://localhost:5000/api/auth/profile', data, {
+            const response = await axios.put('/auth/profile', data, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data'
@@ -167,7 +168,7 @@ function ClientProfile({ showToast }) {
             if (removeAvatar) {
                 updatedUser.avatar = null;
             } else if (response.data.user.profile_image) {
-                updatedUser.avatar = `http://localhost:5000${response.data.user.profile_image}`;
+                updatedUser.avatar = `${BASE_URL}${response.data.user.profile_image}`;
             } else if (previewImage) {
                 updatedUser.avatar = previewImage;
             }
