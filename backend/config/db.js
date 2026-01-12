@@ -1,10 +1,14 @@
 const mysql = require('mysql2');
+require('dotenv').config();
 
 const db = mysql.createPool({
-    host: '127.0.0.1',
-    user: 'root',
-    password: '',
-    database: 'ca_firm_db'
+    host: process.env.DB_HOST || '127.0.0.1',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'ca_firm_db',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
 // IMPORTANT: This allows us to use async/await in routes

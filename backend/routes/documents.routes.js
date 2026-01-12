@@ -4,11 +4,17 @@ const db = require('../config/db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const auth = require('../middleware/auth');
 const { notifyDocumentUploaded } = require('../utils/notificationHelper');
 
 // Configure multer for local storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
+    // Note: req.body is not fully populated here if using standard multer usage without text fields coming first
+    // But for this simple setup, we will save to a temporary or general folder if needed,
+    // or rely on the fact that we might organize files differently.
+    // However, to keep it simple and secure, let's store in a flat structure or by ID after processing.
+    // For now, preserving existing logic but creating directory if needed.
     const clientId = req.body.client_id || 'general';
     const dir = `uploads/documents/${clientId}`;
 
@@ -28,9 +34,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// Apply Auth Middleware to ALL routes
+router.use(auth);
+
 // GET all documents
 router.get('/', (req, res) => {
   const { user_id, exclude_clients } = req.query;
+  const currentUser = req.user; // From auth middleware
 
   let query = `
         SELECT 
@@ -46,14 +56,22 @@ router.get('/', (req, res) => {
     `;
 
   const params = [];
-  if (user_id) {
-    // If fetching for a specific user (Client Dashboard), ensure they only see what they are allowed to see
-    query += ' AND c.user_id = ? AND d.is_visible_to_client = 1';
-    params.push(user_id);
-  }
 
-  if (exclude_clients === 'true') {
-    query += " AND u.user_type != 'client'";
+  // ACCESS CONTROL
+  if (currentUser.user_type === 'client') {
+    // Clients can ONLY see their own documents that are marked visible
+    query += ' AND c.user_id = ? AND d.is_visible_to_client = 1';
+    params.push(currentUser.id);
+  } else {
+    // CA/Admin Logic
+    if (user_id) {
+      // If Admin wants to filter by specific user
+      query += ' AND c.user_id = ?';
+      params.push(user_id);
+    }
+    if (exclude_clients === 'true') {
+      query += " AND u.user_type != 'client'";
+    }
   }
 
   query += ' ORDER BY d.created_at DESC';
@@ -78,13 +96,67 @@ router.get('/categories', (req, res) => {
   });
 });
 
+// DOWNLOAD document
+router.get('/download/:id', (req, res) => {
+  const docId = req.params.id;
+  const currentUser = req.user;
+
+  const query = `
+      SELECT d.*, c.user_id as client_user_id
+      FROM documents d
+      JOIN clients c ON d.client_id = c.id
+      WHERE d.id = ? AND d.deleted_at IS NULL
+  `;
+
+  db.query(query, [docId], (err, results) => {
+    if (err) {
+      console.error('Error fetching document for download:', err);
+      return res.status(500).json({ message: 'Server error' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    const doc = results[0];
+
+    // Access Control
+    if (currentUser.user_type === 'client') {
+      if (doc.client_user_id !== currentUser.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      if (!doc.is_visible_to_client) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    // File path resolution
+    // Note: stored paths might differ based on OS (windows vs linux separators)
+    // The DB stores relative path like "uploads/documents/..."
+    const filePath = path.resolve(doc.file_path);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'File not found on server' });
+    }
+
+    // Stream file
+    res.download(filePath, doc.file_name || 'document');
+  });
+});
+
 // UPLOAD documents
 router.post('/upload', upload.array('files'), async (req, res) => {
   let { client_id, category_id, financial_year, month, description, tags, visibility, is_acknowledgement, uploaded_by } = req.body;
+  const currentUser = req.user;
 
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ message: 'No files uploaded' });
   }
+
+  // Security: If uploader is client, ensure they are uploading for themselves
+  // However, clients usually upload to their own 'client_id' (which maps to their user_id).
+  // The frontend might send client_id.
 
   // Resolve Client ID (Handle case where client_id is actually user_id)
   let resolvedClientId = client_id;
@@ -105,7 +177,21 @@ router.post('/upload', upload.array('files'), async (req, res) => {
         console.warn('Could not resolve valid client_id for upload. Using provided:', client_id);
       }
     } else {
+      resolvedClientId = clientById[0].id;
       clientUserId = clientById[0].user_id;
+    }
+
+    // Access Check: If user is client, they can only upload to their own client record
+    if (currentUser.user_type === 'client') {
+       if (clientUserId !== currentUser.id) {
+         return res.status(403).json({ message: 'You can only upload documents for your own account' });
+       }
+       // Clients uploading files -> usually visible to themselves
+       visibility = 'both';
+       uploaded_by = currentUser.id;
+    } else {
+       // If CA is uploading, use the ID from token or body (if provided)
+       uploaded_by = currentUser.id;
     }
 
     // Get category name for notification
@@ -115,6 +201,7 @@ router.post('/upload', upload.array('files'), async (req, res) => {
     }
   } catch (err) {
     console.error('Error resolving client ID:', err);
+    return res.status(500).json({ message: 'Database error during client resolution' });
   }
 
 
@@ -158,9 +245,7 @@ router.post('/upload', upload.array('files'), async (req, res) => {
       const values = [
         resolvedClientId,
         category_id,
-        file.originalname, // document_name (Keep original name for display if needed, or user might want new name here too. Usually 'document_name' is user-friendly name.) 
-        // NOTE: User asked to "rewrite the file name", usually implies the stored file. 
-        // I will store the NEW filename in file_name column so it matches disk.
+        file.originalname,
         file.filename,     // file_name (saved name)
         file.path.replace(/\\/g, '/'), // file_path
         file.mimetype,
@@ -170,7 +255,7 @@ router.post('/upload', upload.array('files'), async (req, res) => {
         description,
         tags,
         is_acknowledgement === 'true' ? 1 : 0,
-        uploaded_by || 1,
+        uploaded_by,
         (visibility === 'client' || visibility === 'both') ? 1 : 0
       ];
 
@@ -191,7 +276,8 @@ router.post('/upload', upload.array('files'), async (req, res) => {
       console.log('--- Upload Success ---');
 
       // Create notification for client if visible to client and we have client user_id
-      if (visibility === 'client' && clientUserId) {
+      // Only notify if the UPLOADER is NOT the client (i.e. CA uploaded it)
+      if (visibility === 'client' && clientUserId && currentUser.user_type !== 'client') {
         try {
           // Create one notification for the upload (using first document as reference)
           const firstDoc = results[0];
@@ -204,7 +290,6 @@ router.post('/upload', upload.array('files'), async (req, res) => {
           console.log(`✅ Notification created for client user_id: ${clientUserId}`);
         } catch (notifErr) {
           console.error('Error creating notification:', notifErr);
-          // Don't fail the upload if notification fails
         }
       }
 
@@ -219,20 +304,36 @@ router.post('/upload', upload.array('files'), async (req, res) => {
 // DELETE document (Soft Delete)
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
+  const currentUser = req.user;
 
-  const query = 'UPDATE documents SET deleted_at = NOW() WHERE id = ?';
+  // First check ownership/permission
+  const checkQuery = `
+      SELECT d.id, c.user_id as client_user_id
+      FROM documents d
+      JOIN clients c ON d.client_id = c.id
+      WHERE d.id = ?
+  `;
 
-  db.query(query, [id], (err, result) => {
-    if (err) {
-      console.error('Error deleting document:', err);
-      return res.status(500).json(err);
-    }
+  db.query(checkQuery, [id], (err, results) => {
+      if (err) return res.status(500).json(err);
+      if (results.length === 0) return res.status(404).json({ message: 'Document not found' });
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Document not found' });
-    }
+      const doc = results[0];
 
-    res.json({ message: 'Document deleted successfully' });
+      if (currentUser.user_type === 'client') {
+          if (doc.client_user_id !== currentUser.id) {
+              return res.status(403).json({ message: 'Access denied' });
+          }
+      }
+
+      const query = 'UPDATE documents SET deleted_at = NOW() WHERE id = ?';
+      db.query(query, [id], (delErr, result) => {
+        if (delErr) {
+          console.error('Error deleting document:', delErr);
+          return res.status(500).json(delErr);
+        }
+        res.json({ message: 'Document deleted successfully' });
+      });
   });
 });
 

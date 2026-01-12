@@ -3,6 +3,9 @@ const router = express.Router();
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 
+// Helper to use db.promise() which is cleaner for transactions
+const promiseDb = db.promise();
+
 // GET all clients with primary contact (excluding soft deleted)
 router.get('/', (req, res) => {
     const query = `
@@ -40,32 +43,37 @@ router.get('/', (req, res) => {
     });
 });
 
-// ADD new client with contact
-router.post('/', (req, res) => {
+// ADD new client with contact (TRANSACTIONAL)
+router.post('/', async (req, res) => {
     const { business_name, client_name, email, phone, pan, client_type, aadhar, gstin, address, city, state, status, dob, pincode, notes } = req.body;
 
-    // Generate CLT code
-    const year = new Date().getFullYear();
-    db.query('SELECT client_code FROM clients WHERE client_code LIKE ? ORDER BY id DESC LIMIT 1', [`CLT${year}%`], (err, results) => {
-        if (err) {
-            console.error('Error fetching last client code:', err);
-            return res.status(500).json(err);
-        }
+    const connection = await promiseDb.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        // 1. Generate CLT code
+        const year = new Date().getFullYear();
+        // Use FOR UPDATE to lock rows and prevent race condition on client_code generation
+        // However, locking by 'client_code LIKE' might not lock the gap properly in all isolation levels.
+        // A safer way for high concurrency is a dedicated sequence table, but for this scale, this is better than before.
+        const [codeResults] = await connection.query('SELECT client_code FROM clients WHERE client_code LIKE ? ORDER BY id DESC LIMIT 1 FOR UPDATE', [`CLT${year}%`]);
 
         let newCode = `CLT${year}0001`;
-        if (results && results.length > 0 && results[0].client_code) {
-            const lastCode = results[0].client_code;
-            // Format: CLT20250014 (3 chars + 4 year + 4 seq)
+        if (codeResults.length > 0 && codeResults[0].client_code) {
+            const lastCode = codeResults[0].client_code;
             const lastNum = parseInt(lastCode.substring(7));
             newCode = `CLT${year}${String(lastNum + 1).padStart(4, '0')}`;
         }
 
-        const query = `
+        // 2. Insert Client (without user_id initially or with a placeholder)
+        // We set user_id to 1 (Admin) initially or NULL if allowed, then update it.
+        const insertClientQuery = `
             INSERT INTO clients 
             (business_name, email, phone, pan_number, client_category, aadhar_number, gstin, address, city, state, status, client_code, user_id, date_of_birth, pincode, notes) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        const values = [
+        const clientValues = [
             business_name,
             email,
             phone,
@@ -78,60 +86,52 @@ router.post('/', (req, res) => {
             state,
             (status || 'active').toLowerCase(),
             newCode,
-            1, // Default to Admin user_id
+            1, // Placeholder
             dob,
             pincode,
             notes
         ];
 
-        db.query(query, values, (err, result) => {
-            if (err) {
-                if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(400).json({ message: `Client with PAN ${pan} already exists.` });
-                }
-                console.error('Error adding client:', err);
-                return res.status(500).json(err);
+        const [clientResult] = await connection.query(insertClientQuery, clientValues);
+        const newClientId = clientResult.insertId;
+
+        // 3. Create User Account
+        const defaultPassword = '123456';
+        const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+        const insertUserQuery = `
+            INSERT INTO users (user_type, name, email, mobile, password, is_active)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        const userValues = ['client', client_name, email, phone, hashedPassword, 1];
+
+        const [userResult] = await connection.query(insertUserQuery, userValues);
+        const newUserId = userResult.insertId;
+
+        // 4. Link User to Client
+        await connection.query('UPDATE clients SET user_id = ? WHERE id = ?', [newUserId, newClientId]);
+
+        await connection.commit();
+
+        console.log(`Created Client ${newClientId} and User ${newUserId} with Code ${newCode}`);
+        res.json({ message: 'Client and User account added successfully', client_code: newCode });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error('Transaction Error in Client Creation:', err);
+
+        if (err.code === 'ER_DUP_ENTRY') {
+            if (err.message.includes('pan_number')) {
+                return res.status(400).json({ message: `Client with PAN ${pan} already exists.` });
             }
-
-            // Create User Account for the Client
-            const defaultPassword = '123456';
-            bcrypt.hash(defaultPassword, 10, (hashErr, hashedPassword) => {
-                if (hashErr) {
-                    console.error('Error hashing password:', hashErr);
-                    // We still return success for client creation, but log the error. 
-                    return res.json({ message: 'Client added successfully, but user account creation failed', client_code: newCode });
-                }
-
-                const userQuery = `
-                    INSERT INTO users (user_type, name, email, mobile, password, is_active)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                `;
-                const userValues = ['client', client_name, email, phone, hashedPassword, 1];
-
-                db.query(userQuery, userValues, (userErr, userResult) => {
-                    if (userErr) {
-                        console.error('Error creating user account:', JSON.stringify(userErr));
-                        // Return error so frontend knows
-                        return res.status(500).json({ message: 'Client created but User account creation failed: ' + userErr.message });
-                    }
-
-                    // CRITICAL FIX: Update the client record with the new user_id
-                    const newUserId = userResult.insertId;
-                    // We need to know the client ID. The 'result' variable from line 84 contains the client insert result.
-                    const newClientId = result.insertId;
-
-                    db.query('UPDATE clients SET user_id = ? WHERE id = ?', [newUserId, newClientId], (updateErr) => {
-                        if (updateErr) {
-                            console.error('Error linking user to client:', updateErr);
-                            // Return success but warning (or could rely on repair script later)
-                        }
-                        console.log(`Linked Client ${newClientId} to User ${newUserId}`);
-                        res.json({ message: 'Client and User account added successfully', client_code: newCode });
-                    });
-                });
-            });
-        });
-    });
+            if (err.message.includes('email')) {
+                return res.status(400).json({ message: `User with email ${email} already exists.` });
+            }
+        }
+        res.status(500).json({ message: 'Error creating client', error: err.message });
+    } finally {
+        connection.release();
+    }
 });
 
 // UPDATE client
