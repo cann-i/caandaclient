@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../components/ui/Button';
 import { User, Lock, Mail, Eye, EyeOff, Briefcase, ChevronRight, Loader2, ShieldCheck } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = API_BASE_URL;
 
 function LoginPage({ onLogin, showToast }) {
   const [selectedRole, setSelectedRole] = useState(() => {

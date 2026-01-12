@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 import {
@@ -51,9 +51,9 @@ function Documents({ showToast }) {
       try {
         setLoading(true);
         const [docsRes, clientsRes, catsRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/documents?exclude_clients=true'),
-          axios.get('http://localhost:5000/api/clients'),
-          axios.get('http://localhost:5000/api/documents/categories')
+          axios.get('/documents?exclude_clients=true'),
+          axios.get('/clients'),
+          axios.get('/documents/categories')
         ]);
         setDocuments(docsRes.data);
         setClients(clientsRes.data);
@@ -112,7 +112,7 @@ function Documents({ showToast }) {
   const deleteDocument = async (id, documentName) => {
     if (window.confirm(`Are you sure you want to delete "${documentName}"?`)) {
       try {
-        await axios.delete(`http://localhost:5000/api/documents/${id}`);
+        await axios.delete(`/documents/${id}`);
         setDocuments(docs => docs.filter(d => d.id !== id));
         showToast('Document deleted successfully', 'success');
       } catch (error) {
@@ -131,7 +131,7 @@ function Documents({ showToast }) {
     }
     // Remove duplicate slashes if any
     const cleanPath = doc.file_path.replace(/^\/+/, '');
-    const fileUrl = `http://localhost:5000/${cleanPath}`;
+    const fileUrl = `${BASE_URL}/${cleanPath}`;
     window.open(fileUrl, '_blank');
   };
 
@@ -139,7 +139,7 @@ function Documents({ showToast }) {
     try {
       showToast(`Downloading ${doc.file_name}...`, 'info');
       const cleanPath = doc.file_path.replace(/^\/+/, '');
-      const fileUrl = `http://localhost:5000/${cleanPath}`;
+      const fileUrl = `${BASE_URL}/${cleanPath}`;
 
       const response = await fetch(fileUrl);
       if (!response.ok) throw new Error('Network response was not ok');

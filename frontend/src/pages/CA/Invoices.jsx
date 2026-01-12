@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 import * as XLSX from 'xlsx';
@@ -89,7 +89,7 @@ function Invoices({ showToast }) {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/invoices');
+      const response = await axios.get('/invoices');
       setInvoices(response.data);
     } catch (error) {
       console.error("Error fetching invoices:", error);
@@ -109,8 +109,8 @@ function Invoices({ showToast }) {
       const fetchData = async () => {
         try {
           const [clientsRes, servicesRes] = await Promise.all([
-            axios.get('http://localhost:5000/api/clients'),
-            axios.get('http://localhost:5000/api/services')
+            axios.get('/clients'),
+            axios.get('/services')
           ]);
           setClients(clientsRes.data);
           setServices(servicesRes.data);
@@ -134,7 +134,7 @@ function Invoices({ showToast }) {
     if ((showViewModal || showEditModal) && selectedInvoice) {
       const fetchDetails = async () => {
         try {
-          const res = await axios.get(`http://localhost:5000/api/invoices/${selectedInvoice.id}`);
+          const res = await axios.get(`${API_BASE_URL}/invoices/${selectedInvoice.id}`);
           const fullInvoice = res.data;
 
           setSelectedInvoice(fullInvoice); // Update with full details (items, payments)
@@ -250,7 +250,7 @@ function Invoices({ showToast }) {
     const handleStatusUpdate = async (newStatus) => {
         if (!selectedInvoice) return;
         try {
-          await axios.put(`http://localhost:5000/api/invoices/${selectedInvoice.id}/status`, { status: newStatus });
+          await axios.put(`${API_BASE_URL}/invoices/${selectedInvoice.id}/status`, { status: newStatus });
           setInvoices(prev => prev.map(invoice =>
             invoice.id === selectedInvoice.id ? { ...invoice, status: newStatus } : invoice
           ));
@@ -266,7 +266,7 @@ function Invoices({ showToast }) {
       const handleDeleteInvoice = async (invoiceId) => {
         if (window.confirm('Are you sure you want to delete this invoice?')) {
           try {
-            await axios.delete(`http://localhost:5000/api/invoices/${invoiceId}`);
+            await axios.delete(`${API_BASE_URL}/invoices/${invoiceId}`);
             setInvoices(prev => prev.filter(invoice => invoice.id !== invoiceId));
             showToast?.('Invoice deleted successfully', 'success');
           } catch (error) {
@@ -363,7 +363,7 @@ function Invoices({ showToast }) {
         status: 'Pending'
       };
 
-      await axios.post('http://localhost:5000/api/invoices', payload);
+      await axios.post('/invoices', payload);
       showToast?.('Invoice created successfully', 'success');
       setShowCreateModal(false);
       setInvoiceForm({ clientId: null, date: new Date().toISOString().split('T')[0], dueDate: '', items: [], notes: '' });
@@ -393,7 +393,7 @@ function Invoices({ showToast }) {
             description: invoiceForm.notes,
             notes: invoiceForm.notes
         };
-        await axios.put(`http://localhost:5000/api/invoices/${selectedInvoice.id}`, payload);
+        await axios.put(`${API_BASE_URL}/invoices/${selectedInvoice.id}`, payload);
         showToast?.('Invoice updated successfully', 'success');
         setShowEditModal(false);
         fetchInvoices();
@@ -409,7 +409,7 @@ function Invoices({ showToast }) {
           return;
       }
       try {
-          await axios.post(`http://localhost:5000/api/invoices/${selectedInvoice.id}/payments`, {
+          await axios.post(`${API_BASE_URL}/invoices/${selectedInvoice.id}/payments`, {
             paymentAmount: paymentForm.amount,
             paymentDate: paymentForm.date,
             paymentMethod: paymentForm.method,

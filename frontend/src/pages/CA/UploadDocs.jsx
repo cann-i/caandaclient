@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
@@ -39,8 +39,8 @@ function UploadDocs({ showToast }) {
     const fetchData = async () => {
       try {
         const [clientsRes, catsRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/clients'),
-          axios.get('http://localhost:5000/api/documents/categories')
+          axios.get('/clients'),
+          axios.get('/documents/categories')
         ]);
         setClients(clientsRes.data);
         setCategories(catsRes.data);
@@ -77,7 +77,7 @@ function UploadDocs({ showToast }) {
         formData.append('files', file);
       });
 
-      await axios.post('http://localhost:5000/api/documents/upload', formData, {
+      await axios.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 

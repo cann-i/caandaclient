@@ -84,9 +84,7 @@ const ProfilePage = ({ showToast }) => {
                     return;
                 }
 
-                const response = await axios.get('http://localhost:5000/api/auth/profile', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const response = await axios.get('/auth/profile');
 
                 const data = response.data;
                 const formattedUser = {
@@ -98,7 +96,7 @@ const ProfilePage = ({ showToast }) => {
                     joinDate: new Date(data.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
                     status: data.is_active ? 'Active' : 'Inactive',
                     avatar: data.profile_image
-                        ? (data.profile_image.startsWith('http') ? data.profile_image : `http://localhost:5000${data.profile_image}`)
+                        ? (data.profile_image.startsWith('http') ? data.profile_image : `${BASE_URL}${data.profile_image}`)
                         : null
                 };
 
@@ -148,83 +146,110 @@ const ProfilePage = ({ showToast }) => {
         setFormData(prev => ({ ...prev, avatarFile: null }));
     };
 
-    const handleSave = async () => {
+    const handleSaveAll = async () => {
         if (formData.phone && formData.phone.length !== 10) {
             setErrors({ phone: 'Mobile number must be exactly 10 digits' });
             return;
         }
 
-        setIsSaving(true);
-        try {
-            const token = localStorage.getItem('token');
-            const data = new FormData();
-            data.append('name', formData.name);
-            data.append('mobile', formData.phone);
-
-            if (removeAvatar) {
-                data.append('remove_avatar', 'true');
-            } else if (formData.avatarFile) {
-                data.append('avatar', formData.avatarFile);
-            }
-
-            const response = await axios.put('http://localhost:5000/api/auth/profile', data, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            const updatedUser = {
-                ...user,
-                name: formData.name,
-                phone: formData.phone,
-            };
-
-            if (removeAvatar) {
-                updatedUser.avatar = null;
-            } else if (response.data.user.profile_image) {
-                updatedUser.avatar = `http://localhost:5000${response.data.user.profile_image}`;
-            } else if (previewImage) {
-                updatedUser.avatar = previewImage;
-            }
-
-            setUser(updatedUser);
-            setIsEditing(false);
-            setErrors({});
-            setPreviewImage(null);
-            setRemoveAvatar(false);
-            if (showToast) showToast('Profile updated successfully', 'success');
-        } catch (error) {
-            console.error("Error updating profile:", error);
-            if (showToast) showToast("Failed to update profile", 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handlePasswordSave = async () => {
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
+        if (passwordData.newPassword && passwordData.newPassword !== passwordData.confirmPassword) {
             if (showToast) showToast("New passwords do not match", 'error');
             return;
         }
-        if (passwordData.newPassword.length < 6) {
+        if (passwordData.newPassword && passwordData.newPassword.length < 6) {
             if (showToast) showToast("Password must be at least 6 characters", 'error');
             return;
         }
 
         setIsSaving(true);
+        const promises = [];
+
+        // 1. Profile Update
+        const profileData = new FormData();
+        profileData.append('name', formData.name);
+        profileData.append('mobile', formData.phone);
+        if (removeAvatar) {
+            profileData.append('remove_avatar', 'true');
+        } else if (formData.avatarFile) {
+            profileData.append('avatar', formData.avatarFile);
+        }
+
+        promises.push(
+            axios.put('/auth/profile', profileData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            }).then(response => ({ type: 'profile', status: 'fulfilled', data: response.data }))
+              .catch(error => ({ type: 'profile', status: 'rejected', error }))
+        );
+
+        // 2. Password Update (if provided)
+        if (passwordData.newPassword) {
+            promises.push(
+                axios.post('/auth/change-password', {
+                    currentPassword: passwordData.currentPassword,
+                    newPassword: passwordData.newPassword,
+                    confirmPassword: passwordData.confirmPassword
+                }).then(response => ({ type: 'password', status: 'fulfilled', data: response.data }))
+                  .catch(error => ({ type: 'password', status: 'rejected', error }))
+            );
+        }
+
         try {
-            await axios.post('/auth/change-password', {
-                currentPassword: passwordData.currentPassword,
-                newPassword: passwordData.newPassword,
-                confirmPassword: passwordData.confirmPassword
-            });
-            if (showToast) showToast('Password changed successfully!', 'success');
-            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            setIsEditing(false);
+            const results = await Promise.all(promises);
+            const profileResult = results.find(r => r.type === 'profile');
+            const passwordResult = results.find(r => r.type === 'password');
+
+            let successMessage = '';
+            let hasError = false;
+
+            if (profileResult && profileResult.status === 'fulfilled') {
+                const response = profileResult.data;
+                const updatedUser = {
+                    ...user,
+                    name: formData.name,
+                    phone: formData.phone,
+                };
+
+                if (removeAvatar) {
+                    updatedUser.avatar = null;
+                } else if (response.user && response.user.profile_image) {
+                    updatedUser.avatar = `${BASE_URL}${response.user.profile_image}`;
+                } else if (previewImage) {
+                    updatedUser.avatar = previewImage;
+                }
+
+                setUser(updatedUser);
+                // Update Local Storage
+                const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+                localStorage.setItem('user', JSON.stringify({ ...storedUser, ...response.user }));
+
+                successMessage += 'Profile updated. ';
+            } else if (profileResult) {
+                hasError = true;
+                if (showToast) showToast('Failed to update profile.', 'error');
+            }
+
+            if (passwordResult && passwordResult.status === 'fulfilled') {
+                successMessage += 'Password changed. ';
+                setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            } else if (passwordResult) {
+                hasError = true;
+                const msg = passwordResult.error.response?.data?.message || 'Failed to change password.';
+                if (showToast) showToast(msg, 'error');
+            }
+
+            if (successMessage) {
+                if (showToast) showToast(successMessage.trim(), 'success');
+                if (!hasError) {
+                    setIsEditing(false);
+                    setErrors({});
+                    setPreviewImage(null);
+                    setRemoveAvatar(false);
+                }
+            }
+
         } catch (error) {
-            console.error("Error changing password:", error);
-            if (showToast) showToast(error.response?.data?.message || 'Failed to change password.', 'error');
+            console.error("Error saving changes:", error);
+            if (showToast) showToast('An unexpected error occurred.', 'error');
         } finally {
             setIsSaving(false);
         }

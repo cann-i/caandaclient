@@ -28,7 +28,7 @@ import {
 import Button from '../../components/ui/Button';
 
 // Constants
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = API_BASE_URL;
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
   { value: 'active', label: 'Active' },
