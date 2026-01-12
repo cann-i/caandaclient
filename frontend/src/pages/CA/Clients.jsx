@@ -26,9 +26,9 @@ import {
   Users
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { API_BASE_URL } from '../../config';
 
 // Constants
-const API_BASE_URL = API_BASE_URL;
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Status' },
   { value: 'active', label: 'Active' },

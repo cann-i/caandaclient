@@ -15,9 +15,7 @@ import {
   Filter
 } from 'lucide-react';
 import Button from '../../../components/ui/Button';
-
-// Set base URL for Axios
-const API_BASE_URL = API_BASE_URL;
+import { API_BASE_URL } from '../../../config';
 
 function ClientReport({ showToast }) {
   const navigate = useNavigate();

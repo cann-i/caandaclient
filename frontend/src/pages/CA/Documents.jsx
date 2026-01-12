@@ -19,6 +19,7 @@ import {
   FolderOpen
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { BASE_URL } from '../../config';
 
 function Documents({ showToast }) {
   const navigate = useNavigate();

@@ -307,7 +307,7 @@ const ProfilePage = ({ showToast }) => {
                                 </Button>
                                 <Button
                                     variant="accent"
-                                    onClick={() => { handleSave(); if(passwordData.newPassword) handlePasswordSave(); }}
+                                    onClick={handleSaveAll}
                                     disabled={isSaving}
                                     className="w-32"
                                 >

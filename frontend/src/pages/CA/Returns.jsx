@@ -22,8 +22,7 @@ import {
   Loader2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
-
-const API_BASE_URL = API_BASE_URL;
+import { API_BASE_URL } from '../../config';
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending', color: 'bg-warning/10 text-warning border-warning/20', icon: Clock },

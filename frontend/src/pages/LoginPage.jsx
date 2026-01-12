@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../components/ui/Button';
 import { User, Lock, Mail, Eye, EyeOff, Briefcase, ChevronRight, Loader2, ShieldCheck } from 'lucide-react';
-
-const API_BASE_URL = API_BASE_URL;
+import { API_BASE_URL } from '../config';
 
 function LoginPage({ onLogin, showToast }) {
   const [selectedRole, setSelectedRole] = useState(() => {
