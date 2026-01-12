@@ -7,7 +7,10 @@ const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not defined in environment variables');
+}
 
 // Configure Multer for Avatar Uploads
 const storage = multer.diskStorage({
@@ -161,14 +164,7 @@ router.post('/ca-login', (req, res) => {
         }
 
         if (results.length === 0) {
-            // Check if user exists as Client to give better error message
-            db.query('SELECT user_type FROM users WHERE email = ?', [email], (checkErr, checkResults) => {
-                if (!checkErr && checkResults.length > 0 && checkResults[0].user_type === 'client') {
-                    return res.status(400).json({ message: 'This is a Client account. Please use the Client Login tab.' });
-                }
-                return res.status(401).json({ message: 'Invalid credentials or user not found' });
-            });
-            return;
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
 
         const user = results[0];

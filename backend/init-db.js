@@ -2,26 +2,36 @@ const mysql = require('mysql2');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
+// Safety Check
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ ERROR: You cannot run this initialization script in production mode!');
+  console.error('   This script wipes the database. If you really mean to do this, change NODE_ENV.');
+  process.exit(1);
+}
+
+const dbConfig = {
+  host: process.env.DB_HOST || '127.0.0.1',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'ca_firm_db'
+};
+
 // Database connection
-const connection = mysql.createConnection({
-  host: '127.0.0.1',
-  user: 'root',
-  password: '',
-  database: 'ca_firm_db'
-});
+const connection = mysql.createConnection(dbConfig);
 
 const initializeDatabase = async () => {
   try {
     console.log('🚀 Starting database initialization...');
+    console.log(`   Target: ${dbConfig.user}@${dbConfig.host}/${dbConfig.database}`);
 
     // Create database if not exists
     const createDbConnection = mysql.createConnection({
-      host: '127.0.0.1',
-      user: 'root',
-      password: ''
+      host: dbConfig.host,
+      user: dbConfig.user,
+      password: dbConfig.password
     });
 
-    await createDbConnection.promise().query('CREATE DATABASE IF NOT EXISTS ca_firm_db');
+    await createDbConnection.promise().query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
     console.log('✅ Database created/verified');
     createDbConnection.end();
 
@@ -445,7 +455,7 @@ const initializeDatabase = async () => {
 
     console.log('🎉 Database initialization completed successfully!');
     console.log('📋 Summary:');
-    console.log('   - Database: ca_firm_db');
+    console.log(`   - Database: ${dbConfig.database}`);
     console.log('   - Tables: clients, contacts, document_categories, documents, returns, invoices, invoice_items, payments, requests');
     console.log('   - Sample data: 3 clients, 10 document categories, 5 returns, 4 requests');
 
