@@ -18,8 +18,7 @@ import {
   ArrowDownRight,
   MoreHorizontal
 } from 'lucide-react';
-
-const API_BASE_URL = API_BASE_URL;
+import { API_BASE_URL } from '../../config';
 
 function Dashboard({ showToast }) {
   const navigate = useNavigate();

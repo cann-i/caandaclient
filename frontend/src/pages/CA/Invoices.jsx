@@ -30,6 +30,7 @@ import {
   Receipt
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { API_BASE_URL } from '../../config';
 
 function Invoices({ showToast }) {
   const location = useLocation();
