@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import axios from '../../api/axios';
+import { BASE_URL } from '../../config';
 import {
   User,
   Mail,
@@ -11,7 +12,10 @@ import {
   X,
   Edit2,
   ShieldCheck,
-  Calendar
+  Calendar,
+  Briefcase,
+  MapPin,
+  Lock
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 
@@ -59,6 +63,8 @@ function ClientProfile({ showToast }) {
     });
 
     const [formData, setFormData] = useState({});
+    const [businessInfo, setBusinessInfo] = useState({});
+    const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     const [previewImage, setPreviewImage] = useState(null);
     const [removeAvatar, setRemoveAvatar] = useState(false);
     const fileInputRef = useRef(null);
@@ -73,12 +79,13 @@ function ClientProfile({ showToast }) {
                     return;
                 }
 
-                const response = await axios.get('http://localhost:5000/api/auth/profile', {
+                const response = await axios.get('/auth/profile', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
                 const data = response.data;
                 const formattedUser = {
+                    id: data.id,
                     name: data.name || '',
                     role: 'Client',
                     user_type: data.user_type,
@@ -87,12 +94,23 @@ function ClientProfile({ showToast }) {
                     joinDate: new Date(data.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
                     status: data.is_active ? 'Active' : 'Inactive',
                     avatar: data.profile_image
-                        ? (data.profile_image.startsWith('http') ? data.profile_image : `http://localhost:5000${data.profile_image}`)
+                        ? (data.profile_image.startsWith('http') ? data.profile_image : `${BASE_URL}${data.profile_image}`)
                         : null
                 };
 
                 setUser(formattedUser);
                 setFormData(formattedUser);
+
+                // Fetch Client Business Info
+                if (data.user_type === 'client') {
+                    try {
+                        const clientRes = await axios.get(`/clients/by-user/${data.id}`);
+                        setBusinessInfo(clientRes.data);
+                    } catch (clientErr) {
+                        console.error("Failed to load client info:", clientErr);
+                    }
+                }
+
             } catch (error) {
                 console.error("Failed to load profile:", error);
             } finally {
@@ -110,6 +128,16 @@ function ClientProfile({ showToast }) {
             setErrors(prev => ({ ...prev, phone: '' }));
         }
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleBusinessInfoChange = (e) => {
+        const { name, value } = e.target;
+        setBusinessInfo(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handlePasswordChange = (e) => {
+        const { name, value } = e.target;
+        setPasswordData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleFileChange = (e) => {
@@ -151,7 +179,7 @@ function ClientProfile({ showToast }) {
                 data.append('avatar', formData.avatarFile);
             }
 
-            const response = await axios.put('http://localhost:5000/api/auth/profile', data, {
+            const response = await axios.put('/auth/profile', data, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data'
@@ -167,7 +195,7 @@ function ClientProfile({ showToast }) {
             if (removeAvatar) {
                 updatedUser.avatar = null;
             } else if (response.data.user.profile_image) {
-                updatedUser.avatar = `http://localhost:5000${response.data.user.profile_image}`;
+                updatedUser.avatar = `${BASE_URL}${response.data.user.profile_image}`;
             } else if (previewImage) {
                 updatedUser.avatar = previewImage;
             }
@@ -181,6 +209,48 @@ function ClientProfile({ showToast }) {
         } catch (error) {
             console.error("Error updating profile:", error);
             if (showToast) showToast('Failed to update profile.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleBusinessInfoSave = async () => {
+        setIsSaving(true);
+        try {
+            await axios.put(`/clients/profile/${user.id}`, businessInfo);
+            if (showToast) showToast('Business info updated successfully!', 'success');
+            setIsEditing(false);
+        } catch (error) {
+            console.error("Error updating business info:", error);
+            if (showToast) showToast('Failed to update business info.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handlePasswordSave = async () => {
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            if (showToast) showToast("New passwords do not match", 'error');
+            return;
+        }
+        if (passwordData.newPassword.length < 6) {
+            if (showToast) showToast("Password must be at least 6 characters", 'error');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await axios.post('/auth/change-password', {
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword,
+                confirmPassword: passwordData.confirmPassword
+            });
+            if (showToast) showToast('Password changed successfully!', 'success');
+            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            setIsEditing(false);
+        } catch (error) {
+            console.error("Error changing password:", error);
+            if (showToast) showToast(error.response?.data?.message || 'Failed to change password.', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -238,11 +308,11 @@ function ClientProfile({ showToast }) {
                                 </Button>
                                 <Button
                                     variant="accent"
-                                    onClick={handleSave}
+                                    onClick={() => { handleSave(); handleBusinessInfoSave(); if(passwordData.newPassword) handlePasswordSave(); }}
                                     disabled={isSaving}
                                     className="w-32"
                                 >
-                                    {isSaving ? 'Saving...' : 'Save Changes'}
+                                    {isSaving ? 'Saving...' : 'Save All'}
                                 </Button>
                             </>
                         ) : (
@@ -381,6 +451,63 @@ function ClientProfile({ showToast }) {
                         </div>
                     </div>
                 </motion.div>
+
+                {/* Business Information */}
+                {user.user_type === 'client' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="lg:col-span-3 bg-surface border border-border rounded-3xl p-6 md:p-8"
+                    >
+                        <div className="flex items-center gap-3 mb-6 border-b border-border pb-4">
+                            <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center border border-accent/20">
+                                <Briefcase size={20} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-primary">Business Information</h3>
+                                <p className="text-sm text-secondary">Your registered business details</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <InputField label="Business Name" name="business_name" value={businessInfo.business_name} icon={Briefcase} isEditing={isEditing} onChange={handleBusinessInfoChange} />
+                            <InputField label="Client Category" name="client_category" value={businessInfo.client_category} icon={User} isEditing={isEditing} onChange={handleBusinessInfoChange} />
+                            <InputField label="GSTIN" name="gstin" value={businessInfo.gstin} icon={ShieldCheck} isEditing={isEditing} onChange={handleBusinessInfoChange} />
+                            <InputField label="PAN Number" name="pan_number" value={businessInfo.pan_number} icon={ShieldCheck} isEditing={false} onChange={handleBusinessInfoChange} disabled={true} />
+                            <InputField label="Aadhar Number" name="aadhar_number" value={businessInfo.aadhar_number} icon={ShieldCheck} isEditing={isEditing} onChange={handleBusinessInfoChange} />
+                            <InputField label="Address" name="address" value={businessInfo.address} icon={MapPin} isEditing={isEditing} onChange={handleBusinessInfoChange} />
+                            <InputField label="City" name="city" value={businessInfo.city} icon={MapPin} isEditing={isEditing} onChange={handleBusinessInfoChange} />
+                            <InputField label="State" name="state" value={businessInfo.state} icon={MapPin} isEditing={isEditing} onChange={handleBusinessInfoChange} />
+                            <InputField label="Pincode" name="pincode" value={businessInfo.pincode} icon={MapPin} isEditing={isEditing} onChange={handleBusinessInfoChange} />
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Change Password */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="lg:col-span-3 bg-surface border border-border rounded-3xl p-6 md:p-8"
+                >
+                    <div className="flex items-center gap-3 mb-6 border-b border-border pb-4">
+                        <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center border border-accent/20">
+                            <Lock size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-primary">Security</h3>
+                            <p className="text-sm text-secondary">Change your password</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <InputField label="Current Password" name="currentPassword" value={passwordData.currentPassword} icon={Lock} type="password" isEditing={isEditing} onChange={handlePasswordChange} />
+                        <InputField label="New Password" name="newPassword" value={passwordData.newPassword} icon={Lock} type="password" isEditing={isEditing} onChange={handlePasswordChange} />
+                        <InputField label="Confirm Password" name="confirmPassword" value={passwordData.confirmPassword} icon={Lock} type="password" isEditing={isEditing} onChange={handlePasswordChange} />
+                    </div>
+                </motion.div>
+
             </div>
         </div>
     );

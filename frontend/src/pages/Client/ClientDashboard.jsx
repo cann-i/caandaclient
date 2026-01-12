@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../../api/axios';
 import { BentoGrid, BentoCard } from '../../components/ui/BentoGrid';
 import Button from '../../components/ui/Button';
 import {
@@ -36,10 +36,10 @@ function ClientDashboard() {
         try {
             // Fetch relevant data
             const [docsRes, returnsRes, invoicesRes, clientsRes] = await Promise.all([
-                axios.get(`http://localhost:5000/api/documents?user_id=${currentUser.id}`),
-                axios.get(`http://localhost:5000/api/returns?user_id=${currentUser.id}`),
-                axios.get('http://localhost:5000/api/invoices'),
-                axios.get('http://localhost:5000/api/clients')
+                axios.get(`/documents?user_id=${currentUser.id}`),
+                axios.get(`/returns?user_id=${currentUser.id}`),
+                axios.get('/invoices'),
+                axios.get('/clients')
             ]);
 
             // Filter invoices for this client

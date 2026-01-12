@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 import {
@@ -22,9 +22,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Button from '../../../components/ui/Button';
-
-// API Base URL
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL } from '../../../config';
 
 function ClientRequest({ showToast }) {
     const location = useLocation();

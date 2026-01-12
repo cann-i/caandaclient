@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import axios from '../../api/axios';
+import { BASE_URL } from '../../config';
 import {
   User,
   Mail,
@@ -68,6 +69,7 @@ const ProfilePage = ({ showToast }) => {
     });
 
     const [formData, setFormData] = useState({});
+    const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     const [previewImage, setPreviewImage] = useState(null);
     const [removeAvatar, setRemoveAvatar] = useState(false);
     const fileInputRef = useRef(null);
@@ -119,6 +121,11 @@ const ProfilePage = ({ showToast }) => {
             setErrors(prev => ({ ...prev, phone: '' }));
         }
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handlePasswordChange = (e) => {
+        const { name, value } = e.target;
+        setPasswordData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleFileChange = (e) => {
@@ -195,6 +202,34 @@ const ProfilePage = ({ showToast }) => {
         }
     };
 
+    const handlePasswordSave = async () => {
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            if (showToast) showToast("New passwords do not match", 'error');
+            return;
+        }
+        if (passwordData.newPassword.length < 6) {
+            if (showToast) showToast("Password must be at least 6 characters", 'error');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await axios.post('/auth/change-password', {
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword,
+                confirmPassword: passwordData.confirmPassword
+            });
+            if (showToast) showToast('Password changed successfully!', 'success');
+            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            setIsEditing(false);
+        } catch (error) {
+            console.error("Error changing password:", error);
+            if (showToast) showToast(error.response?.data?.message || 'Failed to change password.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const StatusBadge = ({ status }) => (
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border
             ${status === 'Active' ? 'bg-success/10 text-success border-success/20' : 'bg-secondary/10 text-secondary border-border'}`}>
@@ -247,11 +282,11 @@ const ProfilePage = ({ showToast }) => {
                                 </Button>
                                 <Button
                                     variant="accent"
-                                    onClick={handleSave}
+                                    onClick={() => { handleSave(); if(passwordData.newPassword) handlePasswordSave(); }}
                                     disabled={isSaving}
                                     className="w-32"
                                 >
-                                    {isSaving ? 'Saving...' : 'Save Changes'}
+                                    {isSaving ? 'Saving...' : 'Save All'}
                                 </Button>
                             </>
                         ) : (
@@ -390,6 +425,31 @@ const ProfilePage = ({ showToast }) => {
                         </div>
                     </div>
                 </motion.div>
+
+                {/* Change Password */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="lg:col-span-3 bg-surface border border-border rounded-3xl p-6 md:p-8"
+                >
+                    <div className="flex items-center gap-3 mb-6 border-b border-border pb-4">
+                        <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center border border-accent/20">
+                            <Lock size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-primary">Security</h3>
+                            <p className="text-sm text-secondary">Change your password</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <InputField label="Current Password" name="currentPassword" value={passwordData.currentPassword} icon={Lock} type="password" isEditing={isEditing} onChange={handlePasswordChange} />
+                        <InputField label="New Password" name="newPassword" value={passwordData.newPassword} icon={Lock} type="password" isEditing={isEditing} onChange={handlePasswordChange} />
+                        <InputField label="Confirm Password" name="confirmPassword" value={passwordData.confirmPassword} icon={Lock} type="password" isEditing={isEditing} onChange={handlePasswordChange} />
+                    </div>
+                </motion.div>
+
             </div>
         </div>
     );

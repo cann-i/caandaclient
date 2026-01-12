@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import axios from '../../api/axios';
+import { BASE_URL } from '../../config';
 import {
   File,
   FileText,
@@ -40,7 +41,7 @@ function ClientDocuments({ showToast }) {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/documents/categories');
+      const response = await axios.get('/documents/categories');
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -49,7 +50,7 @@ function ClientDocuments({ showToast }) {
 
   const fetchDocuments = useCallback(async (userId) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/documents?user_id=${userId}`);
+      const response = await axios.get(`/documents?user_id=${userId}`);
       setDocuments(response.data);
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -94,7 +95,7 @@ function ClientDocuments({ showToast }) {
   const downloadDocument = async (filePath, fileName) => {
     try {
       showToast('Downloading...', 'info');
-      const response = await axios.get(`http://localhost:5000/${filePath}`, {
+      const response = await axios.get(`${BASE_URL}/${filePath}`, {
         responseType: 'blob',
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -114,7 +115,7 @@ function ClientDocuments({ showToast }) {
   };
 
   const previewDocument = (filePath) => {
-    const url = `http://localhost:5000/${filePath}`;
+    const url = `${BASE_URL}/${filePath}`;
     window.open(url, '_blank');
   };
 
@@ -141,7 +142,7 @@ function ClientDocuments({ showToast }) {
     formData.append('files', uploadFile);
 
     try {
-      await axios.post('http://localhost:5000/api/documents/upload', formData, {
+      await axios.post('/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       showToast(`Uploaded ${uploadFile.name} successfully!`, 'success');

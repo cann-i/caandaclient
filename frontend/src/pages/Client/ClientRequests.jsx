@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import axios from 'axios';
+import axios from '../../api/axios';
+import { BASE_URL } from '../../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
@@ -61,8 +62,8 @@ function ClientRequests({ showToast }) {
       if (!storedUser) { setLoading(false); return; }
 
       const isCA = storedUser.role === 'admin' || storedUser.role === 'CA';
-      let url = 'http://localhost:5000/api/requests';
-      if (!isCA) url = `http://localhost:5000/api/requests/user/${storedUser.id}`;
+      let url = '/requests';
+      if (!isCA) url = `/requests/user/${storedUser.id}`;
 
       const res = await axios.get(url);
       setRequests(res.data);
@@ -85,7 +86,7 @@ function ClientRequests({ showToast }) {
     if (!storedUser || !storedUser.id) { showToast('User not identified', 'error'); return; }
 
     try {
-      await axios.post('http://localhost:5000/api/requests', {
+      await axios.post('/requests', {
         client_id: storedUser.id,
         request_type: requestType,
         description: description,
@@ -151,7 +152,7 @@ function ClientRequests({ showToast }) {
       const fileName = documentPath.split(/[/\\]/).pop();
 
       showToast('Downloading document...', 'info');
-      const fileUrl = `http://localhost:5000/${documentPath}`;
+      const fileUrl = `${BASE_URL}/${documentPath}`;
 
       const response = await fetch(fileUrl);
       if (!response.ok) throw new Error('Network response was not ok');

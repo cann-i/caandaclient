@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import axios from '../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
@@ -48,7 +48,7 @@ function ClientReturns({ showToast }) {
     if (!user) return;
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/returns', {
+      const response = await axios.get('/returns', {
         params: { user_id: user.id }
       });
       setReturns(response.data);

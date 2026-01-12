@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import axios from '../../api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText,
@@ -51,7 +51,7 @@ function ClientInvoices({ showToast }) {
         if (!user) return;
         try {
             setLoading(true);
-            const response = await axios.get('http://localhost:5000/api/invoices');
+            const response = await axios.get('/invoices');
             // Filter by client name or email
             const clientInvoices = response.data.filter(inv =>
                 inv.client === user.name || inv.clientEmail === user.email

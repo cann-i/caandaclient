@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   ChevronDown
 } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 const SidebarItem = ({ item, isActive, onClick, location }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -113,7 +114,7 @@ function CALayout({ children, onLogout, showToast }) {
       if (!token) return;
 
       try {
-        const response = await fetch('http://localhost:5000/api/auth/profile', {
+        const response = await fetch(`${API_BASE_URL}/auth/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -141,11 +142,11 @@ function CALayout({ children, onLogout, showToast }) {
     if (!user?.id) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/notifications/${user.id}`);
+      const response = await fetch(`${API_BASE_URL}/notifications/${user.id}`);
       const data = await response.json();
       setNotifications(data);
 
-      const unreadResponse = await fetch(`http://localhost:5000/api/notifications/${user.id}/unread`);
+      const unreadResponse = await fetch(`${API_BASE_URL}/notifications/${user.id}/unread`);
       const unreadData = await unreadResponse.json();
       setUnreadCount(unreadData.unread_count);
     } catch (error) {
@@ -163,7 +164,7 @@ function CALayout({ children, onLogout, showToast }) {
 
   const handleNotificationClick = async (notification) => {
     try {
-      await fetch(`http://localhost:5000/api/notifications/${notification.id}/read`, {
+      await fetch(`${API_BASE_URL}/notifications/${notification.id}/read`, {
         method: 'PUT'
       });
 
@@ -189,7 +190,7 @@ function CALayout({ children, onLogout, showToast }) {
     if (!user?.id) return;
 
     try {
-      await fetch(`http://localhost:5000/api/notifications/mark-all-read/${user.id}`, {
+      await fetch(`${API_BASE_URL}/notifications/mark-all-read/${user.id}`, {
         method: 'PUT'
       });
 
