@@ -1,5 +1,14 @@
 {
   "dependencies": {
     "morgan": "^1.10.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "scripts": {
+    "setup": "./setup.sh",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start"
   }
 }
