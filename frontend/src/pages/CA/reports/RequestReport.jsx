@@ -19,7 +19,7 @@ import {
 import Button from '../../../components/ui/Button';
 
 // Set base URL for Axios
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = API_BASE_URL;
 
 function RequestReport({ showToast }) {
     const [loading, setLoading] = useState(true);

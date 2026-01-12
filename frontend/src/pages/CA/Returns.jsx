@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = API_BASE_URL;
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending', color: 'bg-warning/10 text-warning border-warning/20', icon: Clock },
